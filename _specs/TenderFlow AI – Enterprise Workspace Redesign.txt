@@ -1,0 +1,420 @@
+TENDERFLOW AI ­ ENTERPRISE WORKSPACE
+REDESIGN MASTER PROMPT FOR CODEX
+
+ROLE
+
+You are a world-class Product Designer, SaaS Architect, UX Strategist, Frontend Engineer, and AI Systems
+Architect.
+Your mission is to redesign TenderFlow from scratch into a category-defining AI Tender Operating System.
+Do not build a dashboard.
+Do not build a CRM.
+Do not build an ERP.
+Do not build a project management platform.
+Do not build a ChatGPT clone.
+Build the world's first AI-native Facility Management Tender Operating System.
+The experience should feel like:
+
+        · OpenAI Team Workspace
+        · Linear
+        · Notion
+        · ClickUp Brain
+        · Vercel
+        · Stripe
+combined into a single premium enterprise product.
+
+PRODUCT VISION
+
+TenderFlow is an AI Bid Department.
+Users do not manually create tender documents.
+Users upload an RFP.
+
+                                                                           1
+TenderFlow understands the tender.
+Specialized AI agents collaborate.
+The platform automatically generates:
+
+        · Technical Proposal
+        · Commercial Proposal
+        · Compliance Matrix
+        · Manpower Plan
+        · PPM Schedule
+        · SLA Matrix
+        · KPI Matrix
+        · Risk Register
+        · HSE Plan
+        · Executive Presentation
+        · Submission Package
+The user should feel:
+"I uploaded a tender and an entire bid team started working."
+
+PLATFORM ARCHITECTURE
+
+Organization  Team Workspace  Tender Workspace  AI Agents  Generated Deliverables
+
+DESIGN PRINCIPLES
+
+Minimal
+Elegant
+Executive-grade
+AI-first
+Document-first
+Workspace-centric
+Enterprise-ready
+
+                                                                           2
+Large whitespace
+Premium typography
+Fast interactions
+No visual clutter
+No unnecessary widgets
+No dashboard overload
+
+COLOR SYSTEM
+
+Primary Background
+
+050816
+
+Secondary Background
+
+0B1220
+
+Workspace Background
+
+111827
+
+Primary Accent
+
+3B82F6
+
+AI Accent
+
+00E5FF
+
+Success
+
+10B981
+
+Warning
+
+                                                                           3
+F59E0B
+
+Danger
+
+EF4444
+
+Text Primary
+
+FFFFFF
+
+Text Secondary
+
+94A3B8
+
+Border
+rgba(255,255,255,0.06)
+
+TYPOGRAPHY
+
+Primary Font
+Inter
+Secondary Font
+Geist
+Hero
+64px
+Page Title
+40px
+Workspace Header
+28px
+
+                                                                           4
+Section Title
+20px
+Body
+16px
+Labels
+14px
+Use typography as the primary visual hierarchy.
+Avoid excessive borders.
+Avoid visual noise.
+
+SIDEBAR DESIGN
+
+NO ICONS.
+NO EMOJIS.
+TEXT ONLY.
+Navigation:
+HOME
+WORKSPACES
+KNOWLEDGE
+DOCUMENTS
+ORGANIZATION
+SETTINGS
+Maximum 6 items.
+
+                                                                           5
+Active state:
+        · Left border
+        · Accent color
+        · Increased font weight
+
+The sidebar should feel similar to:
+        · Linear
+        · Notion
+        · Vercel
+
+HOMEPAGE
+
+The homepage is NOT a chat page.
+The homepage is NOT a dashboard.
+The homepage is an AI Command Center.
+
+HERO SECTION
+
+Headline:
+Upload an RFP. Generate a Complete FM Tender Package.
+Subheadline:
+TenderFlow reads the tender, activates specialized AI agents, analyzes requirements, and prepares
+submission-ready deliverables.
+
+PRIMARY CTA
+
+Large upload area.
+Occupy 40­50% of the screen.
+Support:
+PDF
+
+                                                                           6
+DOCX
+XLSX
+PPTX
+ZIP
+BOQ
+Contracts
+Drawings
+Specifications
+Images
+Appendices
+Drag and Drop.
+Multi-file Upload.
+Folder Upload.
+
+AI BID DEPARTMENT
+
+Directly below the upload area.
+Display live AI agents.
+Qualification Agent
+Compliance Agent
+Technical Proposal Agent
+Commercial Agent
+Manpower Agent
+PPM Agent
+
+                                                                           7
+Risk Agent
+Presentation Agent
+Executive Review Agent
+Each agent displays:
+Status
+Progress
+Current Task
+Generated Deliverables
+Animated indicators.
+Real-time updates.
+The AI agents must feel alive.
+
+WORKSPACE SYSTEM
+
+The platform should support multiple tender workspaces.
+Examples:
+ADNOC FM 2026
+Mubadala HQ FM
+Aldar Communities FM
+Dubai Airports FM
+Emirates Palace FM
+Each tender becomes a workspace.
+
+                                                                           8
+TENDER WORKSPACE DESIGN
+
+Inspired by ClickUp's workspace structure.
+NOT inspired by ClickUp's task management.
+
+Workspace Header:
+Tender Name
+Client
+Submission Deadline
+Contract Value
+Readiness Score
+Win Probability
+
+Workspace Tabs:
+OVERVIEW
+REQUIREMENTS
+AI AGENTS
+DOCUMENTS
+COMPLIANCE
+COMMERCIAL
+SUBMISSION PACKAGE
+
+OVERVIEW TAB
+
+Show:
+
+                                                                           9
+Tender Summary
+Submission Requirements
+Executive Insights
+Key Risks
+Key Opportunities
+Generated automatically.
+
+REQUIREMENTS TAB
+
+Extract automatically from RFP:
+Scope of Work
+Mandatory Requirements
+Technical Requirements
+Commercial Requirements
+Evaluation Criteria
+Submission Conditions
+Deadlines
+No manual entry.
+
+AI AGENTS TAB
+
+Display live collaboration.
+Example:
+Qualification Agent
+Completed
+
+                                                                           10
+Compliance Agent
+Running
+Technical Agent
+Running
+Commercial Agent
+Waiting
+Executive Agent
+Waiting
+Show outputs generated by each agent.
+
+DOCUMENTS TAB
+
+Generated Deliverables:
+Technical Proposal.docx
+Commercial Proposal.xlsx
+PPM Schedule.xlsx
+Risk Register.xlsx
+Executive Presentation.pptx
+Compliance Matrix.xlsx
+Allow:
+Preview
+Version History
+Download
+Regenerate
+
+                                                                           11
+Compare Versions
+
+ORGANIZATION WORKSPACE
+
+Store:
+Company Profile
+Certifications
+Staff Database
+Equipment Database
+Supplier Database
+Past Projects
+References
+Case Studies
+HSE Documents
+Templates
+Knowledge Libraries
+This becomes the AI knowledge base.
+
+TEAM WORKSPACE
+
+Allow collaboration.
+Members:
+Admin
+Bid Manager
+Commercial Manager
+
+                                                                           12
+Operations Manager
+Reviewer
+Viewer
+Features:
+Comments
+Approvals
+Mentions
+Document Review
+Activity Logs
+Version Control
+This is essential for enterprise customers.
+
+COMMAND CENTER
+
+Global search and command system.
+Shortcut:
+CTRL + K
+Examples:
+Analyze Tender
+Generate Proposal
+Generate Commercial Model
+Generate Presentation
+Generate SLA Matrix
+Create Risk Register
+
+                                                                           13
+Search Knowledge Base
+Open Workspace
+Find Documents
+
+ANIMATIONS
+
+Use Framer Motion.
+Implement:
+Smooth transitions
+Agent activity indicators
+AI thinking states
+Document generation progress
+Live collaboration animations
+Premium loading states
+Skeleton loaders
+
+WHAT NOT TO BUILD
+
+Do NOT build:
+Task Management
+Kanban Boards
+Gantt Charts
+Time Tracking
+Project Scheduling
+Issue Tracking
+
+                                                                           14
+Ticketing Systems
+Generic ChatGPT Interface
+Traditional CRM Modules
+ERP Navigation
+
+FINAL USER EXPERIENCE
+
+A user uploads an RFP.
+TenderFlow immediately:
+Reads all documents.
+Builds a tender knowledge graph.
+Launches specialized FM AI agents.
+Creates a Tender Workspace.
+Generates all required tender deliverables.
+Provides executive review.
+Prepares submission package.
+The user should feel:
+"This is not software. This is an AI-powered bid department."
+Every design decision, workflow, page, animation, component, and interaction must reinforce that vision.
+
+                                                                           15
+

@@ -1,0 +1,449 @@
+TEAM WORKSPACE, FILE EDITING & INTEGRATION
+SYSTEM
+
+CORE REQUIREMENT
+
+TenderFlow must support a full team workspace where users can:
+
+        · Upload RFP files
+        · Edit uploaded files metadata
+        · Review generated documents
+        · Edit generated documents
+        · Assign tasks to team members
+        · Comment on documents
+        · Approve or reject AI outputs
+        · Track revisions
+        · Export final tender packages
+TenderFlow is not only AI generation.
+
+It is an AI-powered collaborative tender workspace.
+
+FILE WORKSPACE SYSTEM
+
+Every uploaded RFP creates a dedicated Tender Workspace.
+
+Each workspace contains:
+
+        · Original RFP Documents
+        · Extracted Requirements
+        · AI Agent Outputs
+        · Generated Documents
+        · Team Tasks
+        · Comments
+        · Review Status
+        · Final Submission Package
+
+UPLOADED FILE MANAGEMENT
+
+Users must be able to manage uploaded files.
+
+                                                                           1
+For each uploaded file allow:
+
+        · Rename file
+        · Add description
+        · Assign file category
+        · Mark file as important
+        · Replace file with new version
+        · Delete file
+        · Preview file
+        · Download file
+        · See extraction status
+        · See which AI agents used the file
+
+File categories:
+
+        · RFP Main Document
+        · BOQ
+        · Technical Specification
+        · Contract Conditions
+        · Drawings
+        · Appendices
+        · Compliance Documents
+        · Pricing Documents
+        · Client Forms
+        · Other
+
+GENERATED DOCUMENT EDITING
+
+Generated files must be editable inside the platform.
+
+Supported generated documents:
+
+        · Technical Proposal
+        · Commercial Proposal
+        · Compliance Matrix
+        · Manpower Plan
+        · PPM Schedule
+        · SLA Matrix
+        · KPI Matrix
+        · Risk Register
+        · HSE Plan
+        · Method Statements
+        · Executive Summary
+        · PowerPoint Presentation
+        · Excel Cost Sheet
+
+                                                                           2
+Each generated document should support:
+
+        · Preview
+        · Inline editing
+        · AI rewrite
+        · Regenerate section
+        · Add comments
+        · Assign reviewer
+        · Version history
+        · Approval status
+        · Download as DOCX / XLSX / PPTX / PDF
+
+DOCUMENT EDITOR UX
+
+Create a premium document editor similar to:
+
+        · Notion
+        · Google Docs
+        · Linear comments
+        · Microsoft Loop
+
+Editor features:
+
+        · Rich text editing
+        · Tables
+        · Headings
+        · Comments
+        · Mentions
+        · Version control
+        · AI rewrite selected text
+        · AI expand section
+        · AI shorten section
+        · AI make professional
+        · AI make technical
+        · AI translate
+        · Track changes
+        · Approve changes
+
+TEAM WORKSPACE STRUCTURE
+
+The platform must support organization-level collaboration.
+
+Structure:
+
+                                                                           3
+Organization  Team Workspace  Tender Workspace  Files  AI Agents  Generated Documents 
+Review & Approval  Final Export
+
+TEAM ROLES
+
+Create role-based access control.
+
+Roles:
+
+Owner
+
+Can manage everything.
+
+Permissions:
+
+        · Manage billing
+        · Manage organization
+        · Invite users
+        · Delete workspaces
+        · Manage all tenders
+        · Configure integrations
+        · Approve final submissions
+
+Admin
+
+Can manage team and tenders.
+
+Permissions:
+
+        · Invite users
+        · Create tender workspaces
+        · Edit organization knowledge
+        · Manage documents
+        · Assign tasks
+        · Approve documents
+
+Bid Manager
+
+Responsible for tender package.
+
+Permissions:
+
+        · Upload RFP
+        · Generate documents
+
+                                                                           4
+        · Edit proposals
+        · Assign tasks
+        · Review agent outputs
+        · Export packages
+
+Commercial Manager
+
+Responsible for pricing.
+
+Permissions:
+
+        · View RFP
+        · Edit BOQ
+        · Edit commercial proposal
+        · Edit pricing model
+        · Approve commercial documents
+
+Operations Manager
+
+Responsible for technical delivery.
+
+Permissions:
+
+        · Edit technical proposal
+        · Edit manpower plan
+        · Edit PPM schedule
+        · Edit mobilization plan
+        · Approve operational content
+
+Reviewer
+
+Can review and comment.
+
+Permissions:
+
+        · View documents
+        · Add comments
+        · Request changes
+        · Approve assigned documents
+
+Viewer
+
+Read-only access.
+
+                                                                           5
+Permissions:
+
+        · View tender workspace
+        · View documents
+        · Download approved documents only
+
+TASK ASSIGNMENT SYSTEM
+
+Inside each Tender Workspace users can create and assign tasks.
+
+Task examples:
+
+        · Review Technical Proposal
+        · Complete Commercial Pricing
+        · Verify Compliance Matrix
+        · Check Manpower Plan
+        · Approve Executive Presentation
+        · Upload Missing Certificate
+        · Validate BOQ Pricing
+        · Final Submission Review
+
+Each task includes:
+
+        · Title
+        · Description
+        · Assignee
+        · Due Date
+        · Priority
+        · Status
+        · Related Document
+        · Related AI Agent
+        · Comments
+        · Attachments
+
+Task statuses:
+
+        · To Do
+        · In Progress
+        · In Review
+        · Approved
+        · Blocked
+        · Completed
+
+Priority:
+
+        · Low
+
+                                                                           6
+        · Medium
+        · High
+        · Critical
+
+TEAM COLLABORATION FEATURES
+
+Add:
+
+        · Comments
+        · Mentions
+        · Activity feed
+        · Document review workflow
+        · Approval workflow
+        · Notifications
+        · User presence
+        · Change history
+        · Audit logs
+Examples:
+
+"Mohammad assigned Commercial Proposal review to Ahmed."
+
+"Operations Manager approved Manpower Plan."
+
+"Compliance Agent found 3 missing documents."
+
+"Executive Review Agent marked submission readiness at 82%."
+
+REVIEW & APPROVAL WORKFLOW
+
+Every generated document should have a review status.
+
+Statuses:
+
+        · Draft
+        · AI Generated
+        · In Review
+        · Changes Requested
+        · Approved
+        · Final
+
+                                                                           7
+Users can:
+        · Request changes
+        · Approve document
+        · Reject document
+        · Assign reviewer
+        · Add review comments
+        · Compare versions
+        · Lock final version
+
+INTEGRATIONS
+
+Build integration-ready architecture.
+Required integrations:
+
+Google Drive
+
+Use for:
+        · Import files
+        · Export generated documents
+        · Sync tender folders
+
+Microsoft OneDrive / SharePoint
+
+Use for:
+        · Enterprise document storage
+        · Team collaboration
+        · File sync
+
+Gmail / Outlook
+
+Use for:
+        · Send generated documents
+        · Send review notifications
+        · Email submission packages
+
+                                                                           8
+Slack / Microsoft Teams
+
+Use for:
+
+        · Task notifications
+        · Agent completion alerts
+        · Review reminders
+
+Calendar
+
+Use for:
+
+        · Submission deadlines
+        · Review meetings
+        · Internal tender milestones
+
+Supabase
+
+Use for:
+
+        · Database
+        · Authentication
+        · Storage
+        · Realtime collaboration
+        · Row-level security
+
+OpenAI / AI Provider
+
+Use for:
+
+        · RFP analysis
+        · Document generation
+        · Agent orchestration
+        · Document rewriting
+        · Knowledge retrieval
+
+NOTIFICATION SYSTEM
+
+Notify users when:
+
+        · RFP upload completed
+        · AI extraction completed
+        · Agent finished task
+        · Document generated
+
+                                                                           9
+        · Task assigned
+        · Comment mentioned user
+        · Review requested
+        · Deadline is approaching
+        · Document approved
+        · Final package ready
+Notification channels:
+
+        · In-app
+        · Email
+        · Slack
+        · Microsoft Teams
+
+FINAL EXPORT PACKAGE
+
+Allow the Bid Manager or Admin to export a complete submission package.
+
+Package includes:
+
+        · Technical Proposal
+        · Commercial Proposal
+        · Compliance Matrix
+        · PPM Schedule
+        · Manpower Plan
+        · Risk Register
+        · HSE Plan
+        · Executive Presentation
+        · Required Attachments
+        · Submission Checklist
+Export formats:
+
+        · ZIP
+        · PDF
+        · DOCX
+        · XLSX
+        · PPTX
+Add final readiness check before export.
+
+DESIGN REQUIREMENT
+
+The team workspace should feel like:
+
+                                                                           10
+ClickUp workspace structure
++ Notion document editing
++ Google Docs collaboration
++ Linear task clarity
++ OpenAI agent intelligence
+But do not copy task management features blindly.
+TenderFlow tasks exist only to complete tender submission work.
+Everything must stay focused on:
+Upload RFP  AI Agents Generate  Team Reviews  Final Package Export
+
+                                                                           11
+

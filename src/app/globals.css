@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+/*
+  TenderFlow AI — EIH design tokens
+  Dark enterprise base (spec) + EIH brand (gold/brown) + cyan AI accent.
+*/
+
+:root {
+  /* Surfaces */
+  --background: #050816;        /* primary background */
+  --surface: #0b1220;           /* secondary background */
+  --card: #111827;              /* card / workspace background */
+  --border: rgba(255, 255, 255, 0.06);
+
+  /* Accents */
+  --brand: #c8a24a;             /* EIH gold — primary / brand actions / active nav */
+  --brand-strong: #b48b34;
+  --brown: #8b4226;             /* EIH brown — depth / secondary emphasis */
+  --ai: #00e5ff;                /* AI accent — agents, generation, AI surfaces only */
+
+  /* Status */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  /* Text */
+  --text: #ffffff;              /* text primary */
+  --text-secondary: #94a3b8;    /* text secondary */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-border: var(--border);
+
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brown: var(--brown);
+  --color-ai: var(--ai);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+
+  /* Fonts: Inter primary, Geist secondary (loaded in layout) */
+  --font-sans: var(--font-inter), var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+
+  /* Typography scale (spec) */
+  --text-hero: 64px;
+  --text-page: 40px;
+  --text-workspace: 28px;
+  --text-section: 24px;
+  --text-body: 16px;
+  --text-label: 14px;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  background: var(--background);
+  color: var(--text);
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin, unobtrusive scrollbars for the dark UI */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.14);
+}

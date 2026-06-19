@@ -1,0 +1,59 @@
+{
+  "brand": {
+    "name": "TenderFlow AI",
+    "company": "Etihad International Hospitality"
+  },
+  "nav": {
+    "home": "HOME",
+    "workspaces": "WORKSPACES",
+    "knowledge": "KNOWLEDGE",
+    "documents": "DOCUMENTS",
+    "organization": "ORGANIZATION",
+    "settings": "SETTINGS"
+  },
+  "home": {
+    "greetingMorning": "Good morning",
+    "greetingAfternoon": "Good afternoon",
+    "greetingEvening": "Good evening",
+    "question": "What would you like to create today?",
+    "uploadTitle": "Upload an RFP. Generate a complete FM tender package.",
+    "uploadSubtitle": "TenderFlow reads the tender, activates specialized AI agents, analyzes requirements, and prepares submission-ready deliverables.",
+    "uploadCta": "Drag & drop your RFP files here",
+    "uploadHint": "PDF, DOCX, XLSX, PPTX, ZIP, BOQ, drawings, specifications, images",
+    "uploadButton": "Select files",
+    "prompts": {
+      "title": "Or start with",
+      "technical": "Generate FM Technical Proposal",
+      "commercial": "Generate Commercial Proposal",
+      "manpower": "Create Manpower Plan",
+      "ppm": "Create PPM Schedule",
+      "sla": "Generate SLA Matrix",
+      "presentation": "Generate Executive Presentation",
+      "analyze": "Analyze Uploaded Tender"
+    }
+  },
+  "agents": {
+    "title": "AI Bid Department",
+    "subtitle": "Specialized FM agents that collaborate on every tender.",
+    "status": {
+      "waiting": "Waiting",
+      "running": "Running",
+      "completed": "Completed"
+    },
+    "intelligence": "Tender Intelligence",
+    "qualification": "Qualification",
+    "compliance": "Compliance",
+    "technical": "Technical Proposal",
+    "commercial": "Commercial",
+    "manpower": "Manpower",
+    "ppm": "PPM",
+    "risk": "Risk",
+    "hse": "HSE",
+    "presentation": "Presentation",
+    "executive": "Executive Review"
+  },
+  "common": {
+    "comingSoon": "Coming soon",
+    "language": "Language"
+  }
+}

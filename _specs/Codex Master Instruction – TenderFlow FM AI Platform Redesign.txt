@@ -1,0 +1,437 @@
+CODEX MASTER INSTRUCTION ­ TENDERFLOW FM
+AI PLATFORM REDESIGN
+
+OBJECTIVE
+
+Redesign TenderFlow FM AI into a world-class AI-native SaaS platform.
+This is NOT a dashboard.
+This is NOT an ERP.
+This is NOT a CRM.
+This is NOT a facility management software.
+This is an AI Tender Operating System built specifically for Facility Management companies.
+The platform must feel like a combination of:
+
+        · OpenAI
+        · ChatGPT Team Workspace
+        · Notion AI
+        · Linear
+        · Vercel
+        · Stripe
+        · GitHub Copilot
+The result should look modern, premium, executive-grade, and AI-first.
+
+MOST IMPORTANT PRODUCT PRINCIPLE
+
+TenderFlow is not a tender tracking system.
+TenderFlow is not a document repository.
+TenderFlow is not a workflow engine.
+TenderFlow is an AI Bid Department.
+A user uploads an RFP.
+
+                                                                           1
+AI understands the entire opportunity.
+Multiple specialized AI agents collaborate automatically.
+The platform generates a complete FM tender package.
+The user should feel:
+"An entire bid department is working for me."
+
+REMOVE ALL EXISTING DASHBOARD MENTALITY
+
+Do NOT build:
+        · KPI dashboards
+        · Statistics cards
+        · ERP layouts
+        · Complex navigation structures
+        · Multi-level sidebars
+        · Empty widgets
+        · Unused reports
+
+Avoid showing:
+        · Active Tenders = 0
+        · Qualified = 0
+        · Submitted = 0
+        · Pipeline = 0
+
+Empty dashboards destroy product value perception.
+Instead, focus on actions and AI outputs.
+
+SIDEBAR DESIGN (CRITICAL)
+
+Remove all icons.
+Remove all emojis.
+Remove all navigation symbols.
+Do NOT use:
+
+                                                                           2
+     
+Use text-only navigation.
+Sidebar items:
+HOME
+WORKSPACE
+KNOWLEDGE
+DOCUMENTS
+ORGANIZATION
+SETTINGS
+Maximum 6 navigation items.
+No exceptions.
+
+SIDEBAR BEHAVIOR
+
+Width:
+Collapsed: 80px
+Expanded: 240px
+Smooth transition animations.
+Active state:
+
+        · Left accent border
+        · Subtle background highlight
+        · Accent color
+        · Font weight increase
+No icons required.
+Typography should carry the navigation.
+
+                                                                           3
+TYPOGRAPHY SYSTEM
+
+Primary Font:
+Inter
+Secondary Font:
+Geist
+Hero Titles:
+64px
+Page Titles:
+40px
+Section Titles:
+24px
+Body:
+16px
+Labels:
+14px
+Use typography as a primary design element.
+The interface should feel premium and spacious.
+Use generous whitespace.
+Avoid visual noise.
+
+COLOR SYSTEM
+
+Background:
+
+                                                                           4
+050816
+
+Secondary Background:
+
+0B1220
+
+Card Background:
+
+111827
+
+Primary Accent:
+
+3B82F6
+
+AI Accent:
+
+00E5FF
+
+Success:
+
+10B981
+
+Warning:
+
+F59E0B
+
+Danger:
+
+EF4444
+
+Text Primary:
+
+FFFFFF
+
+Text Secondary:
+
+                                                                           5
+94A3B8
+
+Avoid flashy gradients.
+Avoid cyberpunk effects.
+Look enterprise-grade.
+
+HOME PAGE REDESIGN
+
+The homepage should resemble ChatGPT.
+Large centered experience.
+No dashboard cards.
+No analytics-first layout.
+Show:
+Good Morning, [User]
+What would you like to create today?
+Large AI prompt input.
+Example prompts:
+Generate FM Technical Proposal
+Generate Commercial Proposal
+Create Manpower Plan
+Create PPM Schedule
+Generate SLA Matrix
+Generate Executive Presentation
+Analyze Uploaded Tender
+
+                                                                           6
+The homepage should encourage action.
+
+Not monitoring.
+
+PRIMARY USER FLOW
+
+The entire platform revolves around one workflow:
+
+UPLOAD RFP  AI UNDERSTANDS TENDER  AI AGENTS COLLABORATE  DOCUMENTS GENERATED 
+EXECUTIVE REVIEW  EXPORT SUBMISSION PACKAGE
+
+Everything must support this workflow.
+
+RFP UPLOAD EXPERIENCE
+
+Users upload:
+
+        · PDF
+        · DOCX
+        · XLSX
+        · PPTX
+        · ZIP
+        · Images
+        · BOQ Files
+        · Contracts
+        · Drawings
+        · Specifications
+        · Scope Documents
+        · Appendices
+Support:
+
+        · Drag and Drop
+        · Multi-file Upload
+        · Batch Processing
+The upload experience should be the primary call-to-action.
+
+TENDER INTELLIGENCE ENGINE
+
+After upload:
+
+                                                                           7
+Automatically:
+      1. Read all files
+      2. Extract:
+      3. Client Name
+      4. Tender Name
+      5. Submission Deadline
+      6. Contract Duration
+      7. Scope of Work
+      8. Technical Requirements
+      9. Commercial Requirements
+
+     10. Evaluation Criteria
+     11. BOQ Data
+     12. Asset Information
+     13. Staffing Requirements
+     14. Build Tender Knowledge Base
+     15. Create Tender Workspace
+     16. Generate Executive Summary
+No manual configuration required.
+
+AI WORKSPACE
+
+This becomes the core of the platform.
+Layout:
+LEFT PANEL
+Tender Documents
+Knowledge Sources
+Generated Files
+CENTER PANEL
+
+                                                                           8
+Conversation Workspace
+Chat Interface
+Agent Collaboration Output
+RIGHT PANEL
+AI Agents
+Progress
+Status
+Generated Deliverables
+The workspace should feel similar to ChatGPT + GitHub Copilot.
+
+AI AGENT ORCHESTRATION
+
+After upload:
+Launch:
+Tender Intelligence Agent
+Qualification Agent
+Compliance Agent
+Technical Proposal Agent
+Commercial Agent
+Manpower Agent
+PPM Agent
+Risk Agent
+HSE Agent
+Presentation Agent
+
+                                                                           9
+Executive Review Agent
+
+Agents must collaborate automatically.
+
+The user should not manually trigger each step.
+
+AGENT OUTPUTS
+
+Qualification Agent:
+
+        · Go / No-Go Recommendation
+        · Eligibility Assessment
+        · Qualification Matrix
+Compliance Agent:
+
+        · Compliance Matrix
+        · Submission Checklist
+        · Missing Documents Report
+Technical Proposal Agent:
+
+        · Technical Proposal
+        · Method Statements
+        · Operational Strategy
+        · Service Delivery Plan
+Commercial Agent:
+
+        · Pricing Model
+        · BOQ Analysis
+        · Commercial Submission
+Manpower Agent:
+
+        · Organization Chart
+        · Staffing Plan
+        · Shift Matrix
+        · Mobilization Plan
+PPM Agent:
+
+        · PPM Schedule
+        · Maintenance Matrix
+        · Asset Schedule
+
+                                                                           10
+Risk Agent:
+
+        · Risk Register
+        · Mitigation Plan
+        · Risk Assessment
+
+HSE Agent:
+
+        · HSE Plan
+        · Emergency Procedures
+        · Training Matrix
+
+Presentation Agent:
+
+        · PowerPoint Presentation
+        · Executive Deck
+        · Client Presentation
+
+Executive Review Agent:
+
+        · Submission Readiness Score
+        · Win Probability
+        · Executive Summary
+        · Final Review Report
+
+KNOWLEDGE HUB
+
+Create a centralized FM intelligence system.
+
+Store:
+
+        · Technical Proposals
+        · Method Statements
+        · SOPs
+        · PPM Libraries
+        · SLA Libraries
+        · KPI Libraries
+        · HSE Plans
+        · Risk Registers
+        · Mobilization Plans
+        · Company Profiles
+        · Certifications
+        · Past Projects
+        · References
+        · Case Studies
+
+                                                                           11
+AI automatically uses this information.
+
+DOCUMENT LIBRARY
+
+Store only generated outputs.
+Features:
+
+        · Preview
+        · Download
+        · Version History
+        · Regenerate
+        · Compare Versions
+Supported Outputs:
+        · DOCX
+        · XLSX
+        · PPTX
+        · PDF
+
+COMMAND BAR
+
+Global Command Center.
+Shortcut:
+CTRL + K
+Examples:
+Generate Proposal
+Generate Presentation
+Create Manpower Plan
+Calculate Pricing
+Analyze Tender
+Create SLA Matrix
+
+                                                                           12
+Generate Risk Register
+Search Knowledge
+
+ANIMATIONS
+
+Use Framer Motion.
+Implement:
+
+        · Smooth transitions
+        · AI typing indicators
+        · Agent progress animations
+        · Generation progress
+        · Skeleton loaders
+        · Premium loading states
+The platform should feel alive.
+
+FINAL PRODUCT FEELING
+
+When a user uploads an RFP, they should immediately understand:
+"This platform reads my tender, understands my requirements, activates specialized FM AI agents, and
+prepares a complete bid package for me."
+The experience should feel like:
+An FM Bid Director
+A Commercial Manager
+A Technical Manager
+A Compliance Manager
+An Operations Manager
+A Proposal Writer
+And an Executive Assistant
+
+                                                                           13
+working together inside a single AI-native platform.
+Build every screen, workflow, interaction, and visual element around this vision.
+
+                                                                           14
+

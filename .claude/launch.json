@@ -1,0 +1,5 @@
+{
+  "autoPort": true,
+  "command": "npm run dev",
+  "cwd": "."
+}
