@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/supabase/db";
 import {
+  generateIntelligence,
   generateQualification,
   generateCompliance,
   generateTechnicalProposal,
@@ -9,6 +10,7 @@ import {
   generatePPM,
   generateRisk,
   generateHSE,
+  generateSLA,
   generatePresentation,
   generateExecutiveReview,
   type ExtractionContext,
@@ -17,10 +19,11 @@ import {
 export const maxDuration = 300;
 
 type AgentType =
-  | "qualification" | "compliance" | "technical" | "commercial"
-  | "manpower" | "ppm" | "risk" | "hse" | "presentation" | "executive_review";
+  | "intelligence" | "qualification" | "compliance" | "technical" | "commercial"
+  | "manpower" | "ppm" | "risk" | "hse" | "sla" | "presentation" | "executive_review";
 
 const DOC_TYPE_MAP: Record<AgentType, string> = {
+  intelligence:     "other",
   qualification:    "other",
   compliance:       "compliance_matrix",
   technical:        "technical_proposal",
@@ -29,11 +32,13 @@ const DOC_TYPE_MAP: Record<AgentType, string> = {
   ppm:              "ppm_schedule",
   risk:             "risk_register",
   hse:              "hse_plan",
+  sla:              "other",
   presentation:     "presentation",
   executive_review: "executive_summary",
 };
 
 const DOC_TITLE_MAP: Record<AgentType, string> = {
+  intelligence:     "Tender Intelligence Briefing",
   qualification:    "Qualification Assessment",
   compliance:       "Compliance Matrix",
   technical:        "Technical Proposal",
@@ -42,6 +47,7 @@ const DOC_TITLE_MAP: Record<AgentType, string> = {
   ppm:              "PPM Schedule",
   risk:             "Risk Register",
   hse:              "HSE Plan",
+  sla:              "SLA & KPI Framework",
   presentation:     "Executive Presentation",
   executive_review: "Executive Review Report",
 };
@@ -126,8 +132,8 @@ export async function POST(
 
   // Ensure agent_runs rows exist
   const agentTypes: AgentType[] = [
-    "qualification","compliance","technical","commercial",
-    "manpower","ppm","risk","hse","presentation","executive_review",
+    "intelligence","qualification","compliance","technical","commercial",
+    "manpower","ppm","risk","hse","sla","presentation","executive_review",
   ];
   for (const t of agentTypes) {
     await supabase.from("agent_runs").upsert(
@@ -155,8 +161,9 @@ export async function POST(
     }
   }
 
-  // Stage 1: parallel independent agents
+  // Stage 1: parallel independent agents (including intelligence briefing)
   await Promise.all([
+    runAgent("intelligence",  () => generateIntelligence(ctx)),
     runAgent("qualification", () => generateQualification(ctx)),
     runAgent("compliance",    () => generateCompliance(ctx)),
     runAgent("technical",     () => generateTechnicalProposal(ctx)),
@@ -165,6 +172,7 @@ export async function POST(
     runAgent("ppm",           () => generatePPM(ctx)),
     runAgent("risk",          () => generateRisk(ctx)),
     runAgent("hse",           () => generateHSE(ctx)),
+    runAgent("sla",           () => generateSLA(ctx)),
   ]);
 
   // Stage 2: presentation (depends on technical)

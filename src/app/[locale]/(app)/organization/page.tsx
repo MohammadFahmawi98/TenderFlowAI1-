@@ -1,12 +1,8 @@
 import { setRequestLocale } from "next-intl/server";
-import { PageStub } from "@/components/page-stub";
+import { OrganizationView } from "./organization-view";
 
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  return <PageStub navKey="organization" />;
+  return <OrganizationView />;
 }

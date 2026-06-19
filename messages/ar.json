@@ -4,10 +4,11 @@
     "company": "الاتحاد الدولية للضيافة"
   },
   "nav": {
-    "home": "الرئيسية",
-    "workspaces": "مساحات العمل",
+    "dashboard": "لوحة التحكم",
+    "tenders": "العطاءات",
     "knowledge": "المعرفة",
-    "documents": "المستندات",
+    "suppliers": "الموردون",
+    "reports": "التقارير",
     "organization": "المؤسسة",
     "settings": "الإعدادات"
   },

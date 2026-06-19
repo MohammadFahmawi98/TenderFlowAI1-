@@ -1,89 +1,101 @@
 @import "tailwindcss";
 
 /*
-  TenderFlow AI — EIH design tokens
-  Dark enterprise base (spec) + EIH brand (gold/brown) + cyan AI accent.
+  TenderFM AI — EIH Corporate Theme
+  Brand: Gold #C8A24A · Maroon #8B3520
 */
 
 :root {
-  /* Surfaces */
-  --background: #050816;        /* primary background */
-  --surface: #0b1220;           /* secondary background */
-  --card: #111827;              /* card / workspace background */
-  --border: rgba(255, 255, 255, 0.06);
-
-  /* Accents */
-  --brand: #c8a24a;             /* EIH gold — primary / brand actions / active nav */
-  --brand-strong: #b48b34;
-  --brown: #8b4226;             /* EIH brown — depth / secondary emphasis */
-  --ai: #00e5ff;                /* AI accent — agents, generation, AI surfaces only */
-
-  /* Status */
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-
-  /* Text */
-  --text: #ffffff;              /* text primary */
-  --text-secondary: #94a3b8;    /* text secondary */
+  --bg: #fdfaf6;
+  --surface: #ffffff;
+  --surface-dim: #faf5ee;
+  --surface-mid: #f3ebe0;
+  --border: #d9c9b0;
+  --border-light: #ede3d4;
+  --text: #1a1208;
+  --text-secondary: #4a3f30;
+  --text-muted: #8a7a65;
+  --primary: #8B3520;
+  --primary-btn: #7A2818;
+  --primary-light: #f8ece8;
+  --gold: #C8A24A;
+  --gold-btn: #B8902A;
+  --gold-light: #fdf5e0;
+  --success: #16a34a;
+  --success-bg: #dcfce7;
+  --warning: #d97706;
+  --warning-bg: #fef3c7;
+  --danger: #ba1a1a;
+  --danger-bg: #ffdad6;
+  --secondary: #6b5744;
 }
 
 @theme inline {
-  --color-background: var(--background);
+  --color-bg: var(--bg);
   --color-surface: var(--surface);
-  --color-card: var(--card);
+  --color-surface-dim: var(--surface-dim);
+  --color-surface-mid: var(--surface-mid);
   --color-border: var(--border);
-
-  --color-brand: var(--brand);
-  --color-brand-strong: var(--brand-strong);
-  --color-brown: var(--brown);
-  --color-ai: var(--ai);
-
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-danger: var(--danger);
-
+  --color-border-light: var(--border-light);
   --color-text: var(--text);
   --color-text-secondary: var(--text-secondary);
-
-  /* Fonts: Inter primary, Geist secondary (loaded in layout) */
-  --font-sans: var(--font-inter), var(--font-geist-sans), system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), monospace;
-
-  /* Typography scale (spec) */
-  --text-hero: 64px;
-  --text-page: 40px;
-  --text-workspace: 28px;
-  --text-section: 24px;
-  --text-body: 16px;
-  --text-label: 14px;
+  --color-text-muted: var(--text-muted);
+  --color-primary: var(--primary);
+  --color-primary-btn: var(--primary-btn);
+  --color-primary-light: var(--primary-light);
+  --color-gold: var(--gold);
+  --color-gold-btn: var(--gold-btn);
+  --color-gold-light: var(--gold-light);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-secondary: var(--secondary);
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', var(--font-geist-mono), monospace;
 }
 
-* {
-  border-color: var(--border);
-}
+* { border-color: var(--border-light); }
 
-html {
-  background: var(--background);
-  color: var(--text);
-}
-
-body {
-  background: var(--background);
+html, body {
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
-/* Thin, unobtrusive scrollbars for the dark UI */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #d9c9b0; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #c4a882; }
+
+/* Agent document content */
+.agent-content h1, .agent-content h2, .agent-content h3 {
+  color: var(--text);
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.4rem;
 }
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+.agent-content h1 { font-size: 1.125rem; }
+.agent-content h2 { font-size: 1rem; }
+.agent-content h3 { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
+.agent-content p { margin-bottom: 0.6rem; color: var(--text); font-size: 0.875rem; line-height: 1.6; }
+.agent-content ul, .agent-content ol { margin-left: 1.25rem; margin-bottom: 0.6rem; }
+.agent-content li { margin-bottom: 0.3rem; color: var(--text); font-size: 0.875rem; }
+.agent-content strong { color: var(--text); font-weight: 600; }
+.agent-content br { display: block; margin-bottom: 0.25rem; }
+.agent-content table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.8125rem; }
+.agent-content th {
+  background: #faf5ee;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
+.agent-content td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-light); color: var(--text); }
+.agent-content tr:last-child td { border-bottom: none; }

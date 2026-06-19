@@ -118,15 +118,7 @@ export async function POST(req: NextRequest) {
           })
           .eq("id", tenderId);
 
-        // Seed agent run rows
-        const agentTypes = [
-          "intelligence","qualification","compliance","technical","commercial",
-          "manpower","ppm","risk","hse","presentation","executive_review",
-        ];
-        await supabase.from("agent_runs").insert(
-          agentTypes.map((t) => ({ tender_id: tenderId, agent_type: t })),
-        );
-      } catch (aiErr) {
+          } catch (aiErr) {
         console.error("AI extraction error:", aiErr);
         await supabase
           .from("tenders")
@@ -139,6 +131,16 @@ export async function POST(req: NextRequest) {
         .update({ status: "in_progress" })
         .eq("id", tenderId);
     }
+
+    // Always seed agent run rows (idempotent — ignore conflicts)
+    const agentTypes = [
+      "intelligence","qualification","compliance","technical","commercial",
+      "manpower","ppm","risk","hse","sla","presentation","executive_review",
+    ];
+    await supabase.from("agent_runs").upsert(
+      agentTypes.map((t) => ({ tender_id: tenderId, agent_type: t })),
+      { onConflict: "tender_id,agent_type", ignoreDuplicates: true },
+    );
 
     return NextResponse.json({ tenderId, tender, extraction }, { status: 201 });
   } catch (err) {

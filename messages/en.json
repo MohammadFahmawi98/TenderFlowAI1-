@@ -4,10 +4,11 @@
     "company": "Etihad International Hospitality"
   },
   "nav": {
-    "home": "HOME",
-    "workspaces": "WORKSPACES",
+    "dashboard": "DASHBOARD",
+    "tenders": "TENDERS",
     "knowledge": "KNOWLEDGE",
-    "documents": "DOCUMENTS",
+    "suppliers": "SUPPLIERS",
+    "reports": "REPORTS",
     "organization": "ORGANIZATION",
     "settings": "SETTINGS"
   },

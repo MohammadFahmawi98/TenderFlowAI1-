@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Geist, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
@@ -7,13 +7,12 @@ import { routing, getDir } from "@/i18n/routing";
 import "../globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "TenderFlow AI — Etihad International Hospitality",
+  title: "TenderFM AI — Enterprise Procurement",
   description:
-    "AI Bid Department for Facility Management. Upload an RFP, generate a complete tender package.",
+    "Intelligence at scale for enterprise procurement. AI Bid Department for Facility Management.",
 };
 
 export function generateStaticParams() {
@@ -37,9 +36,15 @@ export default async function LocaleLayout({
     <html
       lang={locale}
       dir={getDir(locale)}
-      className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-background text-text">
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="min-h-full bg-bg text-text">
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>
     </html>

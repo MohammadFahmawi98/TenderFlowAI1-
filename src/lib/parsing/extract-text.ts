@@ -1,5 +1,7 @@
-import fs from "fs/promises";
+import { createRequire } from "module";
 import path from "path";
+
+const _require = createRequire(import.meta.url);
 
 export interface ExtractedFile {
   name: string;
@@ -14,9 +16,9 @@ export async function extractText(
   const ext = path.extname(filename).toLowerCase();
 
   if (ext === ".pdf") {
+    // Use createRequire so module.parent is set → avoids pdf-parse debug-mode crash
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfMod: any = await import("pdf-parse");
-    const pdfParse = pdfMod.default ?? pdfMod;
+    const pdfParse: any = _require("pdf-parse");
     const data = await pdfParse(buffer);
     return { name: filename, text: data.text, mimeType: "application/pdf" };
   }

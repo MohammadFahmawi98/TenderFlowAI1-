@@ -1,12 +1,13 @@
 import { setRequestLocale } from "next-intl/server";
-import { WorkspacesList } from "./workspaces-list";
 
-export default async function WorkspacesPage({
+export default async function AuthLayout({
+  children,
   params,
 }: {
+  children: React.ReactNode;
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  return <WorkspacesList />;
+  return <>{children}</>;
 }

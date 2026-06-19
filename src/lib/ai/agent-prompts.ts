@@ -18,6 +18,34 @@ export interface ExtractionContext {
   contract_duration?: string;
 }
 
+// ── Intelligence Briefing ────────────────────────────────────────────────────
+export async function generateIntelligence(ctx: ExtractionContext): Promise<string> {
+  return complete({
+    system: FM_SYSTEM,
+    user: `Generate a Tender Intelligence Briefing for this FM opportunity.
+
+Tender: ${ctx.tender_name}
+Client: ${ctx.client_name}
+Scope: ${ctx.scope_of_work}
+Technical Requirements: ${ctx.technical_requirements.join("; ")}
+Evaluation Criteria: ${ctx.evaluation_criteria.join("; ")}
+Contract Duration: ${ctx.contract_duration ?? "As per tender"}
+
+Produce a strategic intelligence brief with:
+1. TENDER OVERVIEW — contract type, value estimate, strategic importance
+2. CLIENT INTELLIGENCE — client profile, procurement history, key decision-makers, known preferences
+3. COMPETITIVE LANDSCAPE — likely competitors, their strengths/weaknesses, our positioning
+4. MARKET CONTEXT — current UAE FM market conditions, pricing trends, labour costs
+5. STRATEGIC OPPORTUNITY ASSESSMENT — why we should/should not bid, our differentiators
+6. KEY SUCCESS FACTORS — top 5 factors that will win this tender
+7. INTELLIGENCE GAPS — information we still need before submitting
+8. RECOMMENDED BID STRATEGY
+
+Be specific to UAE/GCC FM market dynamics and Etihad International Hospitality's positioning.`,
+    maxTokens: 2500,
+  });
+}
+
 // ── Qualification ────────────────────────────────────────────────────────────
 export async function generateQualification(ctx: ExtractionContext): Promise<string> {
   return complete({
@@ -251,6 +279,35 @@ SLIDE 15: Call to Action & Next Steps
 
 For each slide: TITLE | KEY MESSAGES (3-4 bullets) | SPEAKER NOTES`,
     maxTokens: 3000,
+  });
+}
+
+// ── SLA & KPI ────────────────────────────────────────────────────────────────
+export async function generateSLA(ctx: ExtractionContext): Promise<string> {
+  return complete({
+    system: FM_SYSTEM,
+    user: `Generate a comprehensive SLA & KPI framework for this FM tender.
+
+Tender: ${ctx.tender_name}
+Client: ${ctx.client_name}
+Scope: ${ctx.scope_of_work}
+Technical Requirements: ${ctx.technical_requirements.join("; ")}
+Contract Duration: ${ctx.contract_duration ?? "As per tender"}
+
+Produce:
+1. SERVICE LEVEL AGREEMENT FRAMEWORK
+   - P1 Emergency Response (target time, measurement, penalty)
+   - P2 Urgent Response (target time, measurement, penalty)
+   - P3 Routine Rectification (target time, measurement, penalty)
+   - P4 Planned Works (target time, measurement, penalty)
+2. KEY PERFORMANCE INDICATORS (at least 10 KPIs)
+   For each: KPI Name | Target | Measurement Method | Reporting Frequency | Consequence of Failure
+3. PENALTY & INCENTIVE REGIME
+4. PERFORMANCE REVIEW PROCESS
+5. REPORTING REQUIREMENTS
+
+Use UAE FM market standards. Reference ISO 41001 where appropriate.`,
+    maxTokens: 2500,
   });
 }
 
