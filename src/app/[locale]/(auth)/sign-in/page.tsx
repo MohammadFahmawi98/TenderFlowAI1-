@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
@@ -52,13 +52,13 @@ export default function SignInPage() {
           <div className="flex h-8 w-8 items-center justify-center rounded bg-white/20">
             <span className="text-[13px] font-bold text-white">TF</span>
           </div>
-          <span className="text-[15px] font-semibold text-white">TenderFM AI</span>
+          <span className="text-[15px] font-semibold text-white">EIH BidDesk</span>
         </div>
 
         {/* Tagline */}
         <div>
           <h1 className="text-[36px] font-bold text-white leading-tight max-w-sm">
-            Intelligence at scale for enterprise procurement
+            AI-powered bidding department for Etihad International Hospitality
           </h1>
           <p className="mt-4 text-[15px] text-white/70 max-w-xs">
             AI-powered bid department. Upload an RFP, generate a complete tender package in minutes.
@@ -79,7 +79,7 @@ export default function SignInPage() {
           </ul>
         </div>
 
-        <p className="text-[12px] text-white/40">© 2026 TenderFM AI. All rights reserved.</p>
+        <p className="text-[12px] text-white/40">© 2026 EIH BidDesk. All rights reserved.</p>
       </div>
 
       {/* Right — form panel */}
@@ -90,7 +90,7 @@ export default function SignInPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded bg-primary">
               <span className="text-[13px] font-bold text-white">TF</span>
             </div>
-            <span className="text-[15px] font-semibold text-text">TenderFM AI</span>
+            <span className="text-[15px] font-semibold text-text">EIH BidDesk</span>
           </div>
 
           <h2 className="text-[26px] font-bold text-text">Welcome back</h2>

@@ -103,7 +103,7 @@ export function KnowledgeHub() {
       {/* Page header */}
       <div className="flex items-center justify-between px-8 py-4 border-b border-border-light bg-surface">
         <div>
-          <h1 className="text-[20px] font-semibold text-text">Knowledge Hub</h1>
+          <h1 className="text-[20px] font-semibold text-text">Bid Library</h1>
           <p className="text-[12px] text-text-secondary mt-0.5">Company intelligence library — AI agents draw from this automatically</p>
         </div>
         <div className="flex items-center gap-3">

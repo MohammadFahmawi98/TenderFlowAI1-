@@ -5,13 +5,13 @@ import { usePathname, Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const NAV = [
-  { label: "Dashboard",    href: "/dashboard",    icon: "grid_view" },
-  { label: "Tenders",      href: "/tenders",      icon: "description" },
-  { label: "Knowledge Hub",href: "/knowledge",    icon: "hub" },
-  { label: "Suppliers",    href: "/suppliers",    icon: "inventory_2" },
-  { label: "Reports",      href: "/reports",      icon: "bar_chart" },
-  { label: "Organization", href: "/organization", icon: "corporate_fare" },
-  { label: "Settings",     href: "/settings",     icon: "settings" },
+  { label: "Dashboard",       href: "/dashboard",    icon: "grid_view" },
+  { label: "Active Bids",     href: "/tenders",      icon: "description" },
+  { label: "Bid Library",     href: "/knowledge",    icon: "library_books" },
+  { label: "Subcontractors",  href: "/suppliers",    icon: "handshake" },
+  { label: "Bid Analytics",   href: "/reports",      icon: "bar_chart" },
+  { label: "Bid Team",        href: "/organization", icon: "group" },
+  { label: "Settings",        href: "/settings",     icon: "settings" },
 ] as const;
 
 /* EIH logo — thick maroon arch + gold crown spikes */
@@ -88,9 +88,9 @@ export function Sidebar() {
         <EIHLogo />
         <div className="min-w-0">
           <p className="text-[13px] font-bold leading-none" style={{ color: "#8B3520" }}>
-            EIH TenderFM
+            EIH BidDesk
           </p>
-          <p className="text-[10px] text-text-muted leading-none mt-0.5">Enterprise Procurement</p>
+          <p className="text-[10px] text-text-muted leading-none mt-0.5">Bidding Department</p>
         </div>
       </div>
 

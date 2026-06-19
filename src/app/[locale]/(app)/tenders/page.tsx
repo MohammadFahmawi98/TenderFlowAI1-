@@ -271,9 +271,9 @@ export default function TendersPage() {
             <div className="flex items-start gap-3 p-4" style={{ borderLeft: "3px solid #C8A24A" }}>
               <span className="material-symbols-outlined text-[20px] text-primary shrink-0 mt-0.5">smart_toy</span>
               <div>
-                <p className="text-[12px] font-semibold text-text">AI Tender Intelligence</p>
+                <p className="text-[12px] font-semibold text-text">AI Bid Intelligence</p>
                 <p className="mt-1 text-[11px] text-text-secondary leading-relaxed">
-                  3 tenders in your pipeline have similar scope to past wins. AI recommends prioritizing the HVAC & MEP bundles for maximum win probability.
+                  Upload an RFP and click Run AI to generate a complete bid package — technical proposal, compliance, manpower, BOQ, risk register, SLA framework and executive review.
                 </p>
               </div>
             </div>

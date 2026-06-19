@@ -140,7 +140,7 @@ export default function ReportsPage() {
       {/* Page header */}
       <div className="flex items-center justify-between px-8 py-4 border-b border-border-light bg-surface">
         <div>
-          <h1 className="text-[20px] font-semibold text-text">Reports & Analytics</h1>
+          <h1 className="text-[20px] font-semibold text-text">Bid Analytics</h1>
           <p className="text-[12px] text-text-secondary mt-0.5">Cross-tender pipeline performance and business intelligence</p>
         </div>
         <div className="flex items-center gap-3">

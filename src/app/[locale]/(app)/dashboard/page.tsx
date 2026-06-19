@@ -304,9 +304,9 @@ export default function DashboardPage() {
           <div className="flex items-start gap-4 p-5" style={{ borderLeft: "3px solid #C8A24A" }}>
             <span className="material-symbols-outlined text-[22px] text-primary shrink-0 mt-0.5">smart_toy</span>
             <div>
-              <p className="text-[13px] font-semibold text-text">AI Procurement Insight</p>
+              <p className="text-[13px] font-semibold text-text">AI Bid Intelligence</p>
               <p className="mt-1 text-[12px] text-text-secondary leading-relaxed">
-                Based on your pipeline, 3 tenders are approaching critical deadlines. Consider prioritizing the compliance review for high-value opportunities. AI analysis suggests a 12% improvement in win rate is achievable with early submission.
+                Upload an RFP to activate 12 AI agents — technical proposal, compliance matrix, BOQ estimation, manpower plan, risk register, SLA framework and executive review generated automatically.
               </p>
             </div>
           </div>
