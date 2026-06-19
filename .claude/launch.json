@@ -1,5 +1,11 @@
 {
-  "autoPort": true,
-  "command": "npm run dev",
-  "cwd": "."
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tenderflow-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "-p", "3001"],
+      "port": 3001
+    }
+  ]
 }

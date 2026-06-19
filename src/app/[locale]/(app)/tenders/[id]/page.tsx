@@ -101,7 +101,7 @@ export default function TenderOverviewPage() {
           </div>
           <p className="text-[14px] leading-relaxed text-text whitespace-pre-wrap">
             {tender?.executive_summary ??
-              "AI analysis in progress â€” the executive summary will appear once agents have run. Upload your RFP and click 'Run AI' to generate this section."}
+              "AI analysis in progress — the executive summary will appear once agents have run. Upload your RFP and click 'Run AI' to generate this section."}
           </p>
           {/* Key chips */}
           <div className="mt-3 flex flex-wrap gap-2">
@@ -136,9 +136,9 @@ export default function TenderOverviewPage() {
           <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary mb-4">Extracted Key Dates</p>
           <div className="flex flex-col gap-3">
             {[
-              { label: "Pre-Qual Deadline", date: "â€”" },
-              { label: "Clarification Deadline", date: "â€”" },
-              { label: "Submission Deadline", date: "â€”" },
+              { label: "Pre-Qual Deadline", date: "—" },
+              { label: "Clarification Deadline", date: "—" },
+              { label: "Submission Deadline", date: "—" },
             ].map((item, i) => (
               <div key={item.label} className="flex items-center gap-3">
                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-light text-[10px] font-bold text-primary">

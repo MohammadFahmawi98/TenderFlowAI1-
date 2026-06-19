@@ -96,7 +96,7 @@ export default function TendersPage() {
         <div>
           <h1 className="text-[20px] font-semibold text-text">Tenders</h1>
           <p className="text-[12px] text-text-secondary mt-0.5">
-            {tenders.length} tender{tenders.length !== 1 ? "s" : ""} Â· Each becomes a dedicated AI workspace
+            {tenders.length} tender{tenders.length !== 1 ? "s" : ""} &middot; Each becomes a dedicated AI workspace
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -132,7 +132,7 @@ export default function TendersPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search tendersâ€¦"
+              placeholder="Search tenders…"
               className="w-full rounded border border-border bg-surface pl-9 pr-3 py-2 text-[13px] text-text placeholder:text-text-muted outline-none focus:border-primary transition-colors"
             />
           </div>
@@ -168,7 +168,7 @@ export default function TendersPage() {
                 <>
                   <span className="material-symbols-outlined text-[48px] text-text-muted">upload_file</span>
                   <p className="text-[16px] font-semibold text-text">Upload an RFP to create your first workspace</p>
-                  <p className="text-[13px] text-text-secondary">PDF Â· DOCX Â· XLSX Â· PPTX Â· ZIP Â· BOQ</p>
+                  <p className="text-[13px] text-text-secondary">PDF &middot; DOCX &middot; XLSX &middot; PPTX &middot; ZIP &middot; BOQ</p>
                   <button className="mt-2 rounded bg-primary px-6 py-2.5 text-[13px] font-semibold text-white hover:bg-primary-btn transition-colors">
                     Select RFP Files
                   </button>
@@ -212,7 +212,7 @@ export default function TendersPage() {
                         {t.client && <p className="text-[11px] text-text-muted mt-0.5">{t.client}</p>}
                       </td>
                       <td className="px-4 py-3.5 font-medium text-text">
-                        {t.contract_value ? fmt(t.contract_value) : "â€”"}
+                        {t.contract_value ? fmt(t.contract_value) : "—"}
                       </td>
                       <td className="px-4 py-3.5">
                         <span className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${s.cls}`}>
@@ -224,7 +224,7 @@ export default function TendersPage() {
                           ? (d >= 0
                             ? new Date(t.submission_deadline!).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
                             : "Passed")
-                          : "â€”"}
+                          : "—"}
                       </td>
                       <td className="px-4 py-3.5">
                         {t.win_probability != null ? (
@@ -234,7 +234,7 @@ export default function TendersPage() {
                             </div>
                             <span className="text-[12px] font-medium text-text">{t.win_probability}%</span>
                           </div>
-                        ) : "â€”"}
+                        ) : "—"}
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex gap-1">
@@ -288,7 +288,7 @@ export default function TendersPage() {
               </div>
               <p className="text-[13px] font-medium text-text">{upcoming[0].name}</p>
               <p className="text-[11px] text-text-secondary mt-0.5">
-                Due in {daysUntil(upcoming[0].submission_deadline!)} days Â·{" "}
+                Due in {daysUntil(upcoming[0].submission_deadline!)} days &middot;{" "}
                 {new Date(upcoming[0].submission_deadline!).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
               </p>
             </div>

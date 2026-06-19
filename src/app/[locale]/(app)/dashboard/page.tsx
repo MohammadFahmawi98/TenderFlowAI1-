@@ -162,7 +162,7 @@ export default function DashboardPage() {
                     onClick={() => router.push("/tenders")}
                     className="rounded border border-border px-3 py-1 text-[11px] text-text-secondary hover:bg-surface-dim transition-colors"
                   >
-                    View all â†’
+                    View all →
                   </button>
                 </div>
               </div>
@@ -178,7 +178,7 @@ export default function DashboardPage() {
                     <>
                       <span className="material-symbols-outlined text-[40px] text-text-muted">upload_file</span>
                       <p className="text-[14px] font-medium text-text">Upload your first RFP</p>
-                      <p className="text-[12px] text-text-secondary">PDF Â· DOCX Â· XLSX Â· PPTX Â· ZIP</p>
+                      <p className="text-[12px] text-text-secondary">PDF &middot; DOCX &middot; XLSX &middot; PPTX &middot; ZIP</p>
                     </>
                   )}
                 </div>
@@ -208,7 +208,7 @@ export default function DashboardPage() {
                             {t.client && <p className="text-[11px] text-text-muted mt-0.5">{t.client}</p>}
                           </td>
                           <td className="px-4 py-3.5 font-medium text-text">
-                            {t.contract_value ? fmt(t.contract_value) : "â€”"}
+                            {t.contract_value ? fmt(t.contract_value) : "—"}
                           </td>
                           <td className="px-4 py-3.5">
                             <span className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${s.cls}`}>
@@ -216,7 +216,7 @@ export default function DashboardPage() {
                             </span>
                           </td>
                           <td className={`px-4 py-3.5 text-[12px] ${d != null && d <= 7 ? "text-danger font-medium" : "text-text-secondary"}`}>
-                            {d != null ? (d >= 0 ? `${d}d` : "Passed") : "â€”"}
+                            {d != null ? (d >= 0 ? `${d}d` : "Passed") : "—"}
                           </td>
                           <td className="px-4 py-3.5">
                             {t.win_probability != null ? (
@@ -229,7 +229,7 @@ export default function DashboardPage() {
                                 </div>
                                 <span className="text-[12px] font-medium text-text">{t.win_probability}%</span>
                               </div>
-                            ) : "â€”"}
+                            ) : "—"}
                           </td>
                         </tr>
                       );

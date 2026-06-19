@@ -83,7 +83,7 @@ export default function SuppliersPage() {
   function Stars({ n }: { n: number }) {
     return (
       <span className="text-warning text-[13px]">
-        {"â˜…".repeat(Math.round(n))}{"â˜†".repeat(5 - Math.round(n))}
+        {"★".repeat(Math.round(n))}{"☆".repeat(5 - Math.round(n))}
       </span>
     );
   }
@@ -145,7 +145,7 @@ export default function SuppliersPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search suppliersâ€¦"
+              placeholder="Search suppliers…"
               className="w-full rounded border border-border bg-surface pl-9 pr-3 py-2 text-[13px] text-text placeholder:text-text-muted outline-none focus:border-primary transition-colors"
             />
           </div>
@@ -211,7 +211,7 @@ export default function SuppliersPage() {
                     <td className="px-4 py-3.5 text-text-secondary">
                       {s.contact ? (
                         <a href={`mailto:${s.contact}`} className="hover:text-primary transition-colors">{s.contact}</a>
-                      ) : "â€”"}
+                      ) : "—"}
                     </td>
                     <td className="px-4 py-3.5 text-text-secondary">{s.region}</td>
                   </tr>

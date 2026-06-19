@@ -18,12 +18,15 @@ export default function SignInPage() {
     setError("");
     setLoading(true);
     const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (authError) {
       setError(authError.message);
+    } else if (data.session) {
+      // Full page reload so the server-side middleware reads the fresh session cookie
+      window.location.href = "/dashboard";
     } else {
-      router.push("/dashboard");
+      setError("Sign-in succeeded but no session was created. Please try again.");
     }
   }
 

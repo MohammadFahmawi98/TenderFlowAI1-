@@ -7,6 +7,11 @@ const intlMiddleware = createIntlMiddleware(routing);
 
 const PUBLIC_PATHS = ["/sign-in", "/sign-up", "/api/"];
 
+// Strip BOM and whitespace that Windows/PowerShell can inject into env vars
+function clean(s: string | undefined): string {
+  return (s ?? "").replace(/^﻿/, "").trim();
+}
+
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
@@ -26,8 +31,8 @@ export async function proxy(request: NextRequest) {
 
   // Create Supabase server client that refreshes session cookies
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    clean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    clean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
     {
       cookies: {
         getAll: () => request.cookies.getAll(),

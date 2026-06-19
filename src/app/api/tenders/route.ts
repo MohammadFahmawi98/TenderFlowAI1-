@@ -132,15 +132,17 @@ export async function POST(req: NextRequest) {
         .eq("id", tenderId);
     }
 
-    // Always seed agent run rows (idempotent — ignore conflicts)
+    // Seed agent run rows one-by-one so a bad enum value doesn't kill the whole upload
     const agentTypes = [
       "intelligence","qualification","compliance","technical","commercial",
       "manpower","ppm","risk","hse","sla","presentation","executive_review",
     ];
-    await supabase.from("agent_runs").upsert(
-      agentTypes.map((t) => ({ tender_id: tenderId, agent_type: t })),
-      { onConflict: "tender_id,agent_type", ignoreDuplicates: true },
-    );
+    for (const t of agentTypes) {
+      await supabase.from("agent_runs").upsert(
+        { tender_id: tenderId, agent_type: t, status: "waiting", progress: 0 },
+        { onConflict: "tender_id,agent_type", ignoreDuplicates: true },
+      ).then((res: { error: { message: string } | null }) => { if (res.error) console.warn(`agent_runs seed skip ${t}:`, res.error.message); });
+    }
 
     return NextResponse.json({ tenderId, tender, extraction }, { status: 201 });
   } catch (err) {
