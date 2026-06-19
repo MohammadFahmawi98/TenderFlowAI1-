@@ -16,6 +16,12 @@ export async function POST(req: NextRequest) {
 
     const supabase = db();
 
+    // Diagnostic: confirm service role key is present
+    const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+    if (!svcKey || svcKey.replace(/^﻿/, "").trim().length < 10) {
+      throw new Error(`SUPABASE_SERVICE_ROLE_KEY missing or empty (len=${svcKey.length})`);
+    }
+
     // 1. Create the tender record (placeholder while we extract)
     const firstName = files[0].name.replace(/\.[^.]+$/, "");
     const { data: tender, error: tenderErr } = await supabase
@@ -24,7 +30,10 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    if (tenderErr) throw new Error(`Create tender: ${tenderErr.message}`);
+    if (tenderErr) {
+      console.error("tenderErr full:", JSON.stringify(tenderErr));
+      throw new Error(`Create tender: ${tenderErr.message} | code=${tenderErr.code} | hint=${tenderErr.hint}`);
+    }
 
     const tenderId = tender.id as string;
 

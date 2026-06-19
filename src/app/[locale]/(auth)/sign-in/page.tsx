@@ -23,6 +23,8 @@ export default function SignInPage() {
     if (authError) {
       setError(authError.message);
     } else if (data.session) {
+      // Sync user into public.users via server action so RLS policies work
+      await fetch("/api/auth/sync-user", { method: "POST" }).catch(() => {});
       // Full page reload so the server-side middleware reads the fresh session cookie
       window.location.href = "/dashboard";
     } else {
