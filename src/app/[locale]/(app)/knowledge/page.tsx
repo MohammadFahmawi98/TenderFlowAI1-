@@ -1,12 +1,8 @@
 import { setRequestLocale } from "next-intl/server";
-import { PageStub } from "@/components/page-stub";
+import { KnowledgeHub } from "./knowledge-hub";
 
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  return <PageStub navKey="knowledge" />;
+  return <KnowledgeHub />;
 }
