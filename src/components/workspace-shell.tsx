@@ -47,6 +47,7 @@ export function WorkspaceShell({
   const pathname = usePathname();
   const router = useRouter();
   const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState("");
 
   const tenderId = tender?.id;
   const base = `/tenders/${tenderId}`;
@@ -56,13 +57,23 @@ export function WorkspaceShell({
     return pathname.startsWith(base + tabPath);
   }
 
-  function runAgents() {
+  async function runAgents() {
     if (!tenderId || running) return;
     setRunning(true);
-    fetch(`/api/tenders/${tenderId}/run-agents`, { method: "POST" })
-      .catch(console.error)
-      .finally(() => setRunning(false));
+    setRunError("");
     router.push(`/tenders/${tenderId}`);
+    try {
+      const res = await fetch(`/api/tenders/${tenderId}/run-agents`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setRunError(body.error ?? `Agent run failed (${res.status})`);
+      }
+    } catch (e) {
+      setRunError("Network error — check your connection and try again.");
+      console.error(e);
+    } finally {
+      setRunning(false);
+    }
   }
 
   const statusStyle = tender?.status
@@ -139,6 +150,17 @@ export function WorkspaceShell({
             </button>
           </div>
         </div>
+
+        {/* Error banner */}
+        {runError && (
+          <div className="mx-6 mb-2 flex items-center gap-2 rounded border border-danger bg-danger-bg px-3 py-2 text-[12px] text-danger">
+            <span className="material-symbols-outlined text-[15px]">error</span>
+            {runError}
+            <button onClick={() => setRunError("")} className="ml-auto text-danger hover:opacity-70">
+              <span className="material-symbols-outlined text-[14px]">close</span>
+            </button>
+          </div>
+        )}
 
         {/* Tab bar */}
         <div className="flex gap-0 overflow-x-auto px-6 border-t border-border-light">

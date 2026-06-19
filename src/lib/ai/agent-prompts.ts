@@ -1,9 +1,9 @@
-import { complete } from "./provider";
+﻿import { complete } from "./provider";
 
 const FM_SYSTEM = `You are a specialist FM (Facility Management) bid consultant working for Etihad International Hospitality.
 You produce professional, detailed, submission-ready content for FM tenders in the UAE/GCC market.
 Write in clear business English. Be specific, quantified, and professional.
-Return only the requested content — no meta-commentary.`;
+Return only the requested content â€” no meta-commentary.`;
 
 export interface ExtractionContext {
   tender_name: string;
@@ -18,7 +18,7 @@ export interface ExtractionContext {
   contract_duration?: string;
 }
 
-// ── Intelligence Briefing ────────────────────────────────────────────────────
+// â”€â”€ Intelligence Briefing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generateIntelligence(ctx: ExtractionContext): Promise<string> {
   return complete({
     system: FM_SYSTEM,
@@ -32,21 +32,21 @@ Evaluation Criteria: ${ctx.evaluation_criteria.join("; ")}
 Contract Duration: ${ctx.contract_duration ?? "As per tender"}
 
 Produce a strategic intelligence brief with:
-1. TENDER OVERVIEW — contract type, value estimate, strategic importance
-2. CLIENT INTELLIGENCE — client profile, procurement history, key decision-makers, known preferences
-3. COMPETITIVE LANDSCAPE — likely competitors, their strengths/weaknesses, our positioning
-4. MARKET CONTEXT — current UAE FM market conditions, pricing trends, labour costs
-5. STRATEGIC OPPORTUNITY ASSESSMENT — why we should/should not bid, our differentiators
-6. KEY SUCCESS FACTORS — top 5 factors that will win this tender
-7. INTELLIGENCE GAPS — information we still need before submitting
+1. TENDER OVERVIEW â€” contract type, value estimate, strategic importance
+2. CLIENT INTELLIGENCE â€” client profile, procurement history, key decision-makers, known preferences
+3. COMPETITIVE LANDSCAPE â€” likely competitors, their strengths/weaknesses, our positioning
+4. MARKET CONTEXT â€” current UAE FM market conditions, pricing trends, labour costs
+5. STRATEGIC OPPORTUNITY ASSESSMENT â€” why we should/should not bid, our differentiators
+6. KEY SUCCESS FACTORS â€” top 5 factors that will win this tender
+7. INTELLIGENCE GAPS â€” information we still need before submitting
 8. RECOMMENDED BID STRATEGY
 
 Be specific to UAE/GCC FM market dynamics and Etihad International Hospitality's positioning.`,
-    maxTokens: 2500,
+    maxTokens: 900,
   });
 }
 
-// ── Qualification ────────────────────────────────────────────────────────────
+// â”€â”€ Qualification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generateQualification(ctx: ExtractionContext): Promise<string> {
   return complete({
     system: FM_SYSTEM,
@@ -66,11 +66,11 @@ Produce a professional qualification assessment with these sections:
 5. RECOMMENDED STRATEGY
 
 Format as professional business document text.`,
-    maxTokens: 2000,
+    maxTokens: 800,
   });
 }
 
-// ── Compliance ───────────────────────────────────────────────────────────────
+// â”€â”€ Compliance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generateCompliance(ctx: ExtractionContext): Promise<string> {
   return complete({
     system: FM_SYSTEM,
@@ -83,16 +83,16 @@ Commercial Requirements: ${ctx.commercial_requirements.join("; ")}
 Evaluation Criteria: ${ctx.evaluation_criteria.join("; ")}
 
 Produce:
-1. COMPLIANCE MATRIX — for each requirement state: Requirement | Our Response | Compliance Status (Fully/Partially/Non-Compliant) | Reference Document
-2. SUBMISSION CHECKLIST — all documents required for submission with status
-3. MISSING DOCUMENTS REPORT — items that need to be prepared
+1. COMPLIANCE MATRIX â€” for each requirement state: Requirement | Our Response | Compliance Status (Fully/Partially/Non-Compliant) | Reference Document
+2. SUBMISSION CHECKLIST â€” all documents required for submission with status
+3. MISSING DOCUMENTS REPORT â€” items that need to be prepared
 
 Format as structured professional content.`,
-    maxTokens: 2500,
+    maxTokens: 900,
   });
 }
 
-// ── Technical Proposal ───────────────────────────────────────────────────────
+// â”€â”€ Technical Proposal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generateTechnicalProposal(ctx: ExtractionContext): Promise<string> {
   return complete({
     system: FM_SYSTEM,
@@ -119,11 +119,11 @@ Write a full Technical Proposal with these sections:
 10. KEY PERFORMANCE INDICATORS
 
 This must be submission-ready, specific to FM, and tailored to the client's requirements.`,
-    maxTokens: 4000,
+    maxTokens: 1200,
   });
 }
 
-// ── Commercial ───────────────────────────────────────────────────────────────
+// â”€â”€ Commercial â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generateCommercial(ctx: ExtractionContext): Promise<string> {
   return complete({
     system: FM_SYSTEM,
@@ -145,11 +145,11 @@ Produce:
 6. VALUE ENGINEERING OPPORTUNITIES
 
 Be specific with AED cost ranges based on UAE FM market rates.`,
-    maxTokens: 2500,
+    maxTokens: 900,
   });
 }
 
-// ── Manpower ─────────────────────────────────────────────────────────────────
+// â”€â”€ Manpower â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generateManpower(ctx: ExtractionContext): Promise<string> {
   return complete({
     system: FM_SYSTEM,
@@ -163,7 +163,7 @@ Contract Duration: ${ctx.contract_duration ?? "As per tender"}
 
 Produce:
 1. ORGANIZATIONAL CHART (describe hierarchy in text)
-2. STAFFING PLAN — role | headcount | qualifications | responsibilities
+2. STAFFING PLAN â€” role | headcount | qualifications | responsibilities
 3. KEY PERSONNEL PROFILES (FM Manager, Supervisors, Technicians)
 4. SHIFT MATRIX (day/night/weekend coverage)
 5. MOBILIZATION TIMELINE (Month 1-3)
@@ -171,11 +171,11 @@ Produce:
 7. STAFF RETENTION STRATEGY
 
 Tailor to UAE FM industry standards and Labour Law requirements.`,
-    maxTokens: 2500,
+    maxTokens: 900,
   });
 }
 
-// ── PPM ──────────────────────────────────────────────────────────────────────
+// â”€â”€ PPM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generatePPM(ctx: ExtractionContext): Promise<string> {
   return complete({
     system: FM_SYSTEM,
@@ -189,18 +189,18 @@ Asset Information: ${ctx.asset_information.join("; ")}
 Produce:
 1. PPM PHILOSOPHY & APPROACH
 2. ASSET REGISTER SUMMARY (by system: MEP, Civil, Landscaping, etc.)
-3. MAINTENANCE FREQUENCY MATRIX — Asset | Frequency | Manhours | Standard
+3. MAINTENANCE FREQUENCY MATRIX â€” Asset | Frequency | Manhours | Standard
 4. ANNUAL PPM SCHEDULE OVERVIEW (by month)
 5. REACTIVE MAINTENANCE RESPONSE TIMES
 6. SPARE PARTS & MATERIALS STRATEGY
 7. ASSET LIFECYCLE MANAGEMENT
 
 Reference UAE/DEWA/ADDC standards and OEM recommendations.`,
-    maxTokens: 2500,
+    maxTokens: 900,
   });
 }
 
-// ── Risk ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Risk â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generateRisk(ctx: ExtractionContext): Promise<string> {
   return complete({
     system: FM_SYSTEM,
@@ -212,18 +212,18 @@ Scope: ${ctx.scope_of_work}
 
 Produce:
 1. RISK MANAGEMENT APPROACH
-2. RISK REGISTER TABLE — Risk | Category | Likelihood (1-5) | Impact (1-5) | Score | Owner | Mitigation | Residual Risk
+2. RISK REGISTER TABLE â€” Risk | Category | Likelihood (1-5) | Impact (1-5) | Score | Owner | Mitigation | Residual Risk
    Include at least 15 specific FM risks covering: operational, commercial, HSE, regulatory, staffing, technical
 3. TOP 5 CRITICAL RISKS (detailed mitigation plans)
 4. OPPORTUNITY REGISTER
 5. RISK MONITORING PLAN
 
 Use UAE FM market context.`,
-    maxTokens: 2500,
+    maxTokens: 900,
   });
 }
 
-// ── HSE ──────────────────────────────────────────────────────────────────────
+// â”€â”€ HSE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generateHSE(ctx: ExtractionContext): Promise<string> {
   return complete({
     system: FM_SYSTEM,
@@ -246,11 +246,11 @@ Produce:
 10. REGULATORY COMPLIANCE (UAE/AD/Dubai authorities)
 
 Reference UAE Labour Law, OSHAD-SF, and relevant authority requirements.`,
-    maxTokens: 2500,
+    maxTokens: 900,
   });
 }
 
-// ── Presentation ─────────────────────────────────────────────────────────────
+// â”€â”€ Presentation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generatePresentation(ctx: ExtractionContext): Promise<string> {
   return complete({
     system: FM_SYSTEM,
@@ -261,8 +261,8 @@ Client: ${ctx.client_name}
 Scope: ${ctx.scope_of_work}
 
 Write slide-by-slide content for a 15-slide executive presentation:
-SLIDE 1: Cover — Tender title, client, our company, date
-SLIDE 2: Executive Summary — Our value proposition in 3 bullet points
+SLIDE 1: Cover â€” Tender title, client, our company, date
+SLIDE 2: Executive Summary â€” Our value proposition in 3 bullet points
 SLIDE 3: Understanding the Client's Vision
 SLIDE 4: Our FM Service Approach
 SLIDE 5: Technical Solution Overview
@@ -274,15 +274,15 @@ SLIDE 10: Financial Strength & Pricing Approach
 SLIDE 11: Past Projects & References (UAE FM experience)
 SLIDE 12: Mobilization Timeline
 SLIDE 13: Risk Management
-SLIDE 14: Why Choose Us — Key Differentiators
+SLIDE 14: Why Choose Us â€” Key Differentiators
 SLIDE 15: Call to Action & Next Steps
 
 For each slide: TITLE | KEY MESSAGES (3-4 bullets) | SPEAKER NOTES`,
-    maxTokens: 3000,
+    maxTokens: 1000,
   });
 }
 
-// ── SLA & KPI ────────────────────────────────────────────────────────────────
+// â”€â”€ SLA & KPI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generateSLA(ctx: ExtractionContext): Promise<string> {
   return complete({
     system: FM_SYSTEM,
@@ -307,11 +307,11 @@ Produce:
 5. REPORTING REQUIREMENTS
 
 Use UAE FM market standards. Reference ISO 41001 where appropriate.`,
-    maxTokens: 2500,
+    maxTokens: 900,
   });
 }
 
-// ── Executive Review ─────────────────────────────────────────────────────────
+// â”€â”€ Executive Review â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function generateExecutiveReview(
   ctx: ExtractionContext,
   allOutputs: Record<string, string>,
@@ -351,7 +351,7 @@ Return as JSON:
   "action_items": ["array"],
   "full_report": "string"
 }`,
-    maxTokens: 2000,
+    maxTokens: 800,
     responseFormat: "json",
   });
 }

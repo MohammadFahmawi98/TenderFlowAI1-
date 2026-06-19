@@ -16,7 +16,7 @@ import {
   type ExtractionContext,
 } from "@/lib/ai/agent-prompts";
 
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 type AgentType =
   | "intelligence" | "qualification" | "compliance" | "technical" | "commercial"
@@ -106,28 +106,23 @@ export async function POST(
   const { id: tenderId } = await params;
   const supabase = db();
 
-  // Load extraction context
-  const { data: extraction } = await supabase
-    .from("tender_extractions")
-    .select("*")
-    .eq("tender_id", tenderId)
-    .single();
-
-  if (!extraction) {
-    return NextResponse.json({ error: "No extraction found — upload and analyse an RFP first." }, { status: 400 });
-  }
+  // Load tender + extraction context (extraction may not exist if PDF parse failed)
+  const [{ data: tenderRow }, { data: extraction }] = await Promise.all([
+    supabase.from("tenders").select("name,client,submission_deadline,contract_duration").eq("id", tenderId).single(),
+    supabase.from("tender_extractions").select("*").eq("tender_id", tenderId).maybeSingle(),
+  ]);
 
   const ctx: ExtractionContext = {
-    tender_name:              extraction.tender_name ?? "Untitled Tender",
-    client_name:              extraction.client_name ?? "Client",
-    scope_of_work:            extraction.scope_of_work ?? "",
-    technical_requirements:   Array.isArray(extraction.technical_requirements) ? extraction.technical_requirements : [],
-    commercial_requirements:  Array.isArray(extraction.commercial_requirements) ? extraction.commercial_requirements : [],
-    evaluation_criteria:      Array.isArray(extraction.evaluation_criteria) ? extraction.evaluation_criteria : [],
-    staffing_requirements:    Array.isArray(extraction.staffing_requirements) ? extraction.staffing_requirements : [],
-    asset_information:        Array.isArray(extraction.asset_information) ? extraction.asset_information : [],
-    deadline:                 extraction.deadline,
-    contract_duration:        extraction.contract_duration,
+    tender_name:             extraction?.tender_name ?? tenderRow?.name ?? "Untitled Tender",
+    client_name:             extraction?.client_name ?? tenderRow?.client ?? "Client",
+    scope_of_work:           extraction?.scope_of_work ?? "Facility Management services as per tender documents.",
+    technical_requirements:  Array.isArray(extraction?.technical_requirements) ? extraction.technical_requirements : [],
+    commercial_requirements: Array.isArray(extraction?.commercial_requirements) ? extraction.commercial_requirements : [],
+    evaluation_criteria:     Array.isArray(extraction?.evaluation_criteria) ? extraction.evaluation_criteria : [],
+    staffing_requirements:   Array.isArray(extraction?.staffing_requirements) ? extraction.staffing_requirements : [],
+    asset_information:       Array.isArray(extraction?.asset_information) ? extraction.asset_information : [],
+    deadline:                extraction?.deadline ?? tenderRow?.submission_deadline,
+    contract_duration:       extraction?.contract_duration ?? tenderRow?.contract_duration,
   };
 
   // Ensure agent_runs rows exist
@@ -161,7 +156,10 @@ export async function POST(
     }
   }
 
-  // Stage 1: parallel independent agents (including intelligence briefing)
+  const startedAt = Date.now();
+  const BUDGET_MS = 50_000; // leave 10s buffer before the 60s Vercel limit
+
+  // Stage 1: run all core agents in parallel
   await Promise.all([
     runAgent("intelligence",  () => generateIntelligence(ctx)),
     runAgent("qualification", () => generateQualification(ctx)),
@@ -175,16 +173,28 @@ export async function POST(
     runAgent("sla",           () => generateSLA(ctx)),
   ]);
 
-  // Stage 2: presentation (depends on technical)
+  const elapsed = Date.now() - startedAt;
+  if (elapsed > BUDGET_MS) {
+    // Out of time — mark remaining as failed, return partial success
+    await setAgent(tenderId, "presentation",     { status: "failed", error: "Skipped: time budget exceeded" });
+    await setAgent(tenderId, "executive_review", { status: "failed", error: "Skipped: time budget exceeded" });
+    return NextResponse.json({ success: true, partial: true });
+  }
+
+  // Stage 2: presentation
   await runAgent("presentation", () => generatePresentation(ctx));
 
-  // Stage 3: executive review (depends on all)
+  if (Date.now() - startedAt > BUDGET_MS) {
+    await setAgent(tenderId, "executive_review", { status: "failed", error: "Skipped: time budget exceeded" });
+    return NextResponse.json({ success: true, partial: true });
+  }
+
+  // Stage 3: executive review
   const reviewRaw = await (async () => {
     await setAgent(tenderId, "executive_review", { status: "running", progress: 20, current_task: "Reviewing all agent outputs…", started_at: new Date().toISOString() });
     try {
       const raw = await generateExecutiveReview(ctx, outputs);
       const parsed = JSON.parse(raw);
-      // Update tender scores
       await supabase.from("tenders").update({
         readiness_score: parsed.readiness_score,
         win_probability: parsed.win_probability,
