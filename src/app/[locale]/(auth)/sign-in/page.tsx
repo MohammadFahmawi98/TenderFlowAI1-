@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { EIHLogo } from "@/components/eih-logo";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -48,10 +49,8 @@ export default function SignInPage() {
         style={{ background: "linear-gradient(135deg, #8B3520 0%, #C8A24A 100%)" }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-white/20">
-            <span className="text-[13px] font-bold text-white">TF</span>
-          </div>
+        <div className="flex items-center gap-3">
+          <EIHLogo size={44} variant="light" />
           <span className="text-[15px] font-semibold text-white">EIH BidDesk</span>
         </div>
 
@@ -87,9 +86,7 @@ export default function SignInPage() {
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="mb-8 flex lg:hidden items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded bg-primary">
-              <span className="text-[13px] font-bold text-white">TF</span>
-            </div>
+            <EIHLogo size={36} variant="dark" />
             <span className="text-[15px] font-semibold text-text">EIH BidDesk</span>
           </div>
 

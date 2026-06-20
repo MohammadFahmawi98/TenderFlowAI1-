@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from "react";
 import { usePathname, Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { EIHLogo } from "@/components/eih-logo";
 
 const NAV = [
   { label: "Dashboard",       href: "/dashboard",    icon: "grid_view" },
@@ -14,28 +15,6 @@ const NAV = [
   { label: "Settings",        href: "/settings",     icon: "settings" },
 ] as const;
 
-/* EIH logo — thick maroon arch + gold crown spikes */
-function EIHLogo() {
-  return (
-    <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      {/* Thick maroon filled arch */}
-      <path
-        d="M10 92 C10 92, 10 38, 50 24 C90 38, 90 92, 90 92 L78 92 C78 92, 78 46, 50 34 C22 46, 22 92, 22 92 Z"
-        fill="#8B3520"
-      />
-      {/* Centre spike (tallest) */}
-      <path d="M50 24 L53 4 L50 10 L47 4 Z" fill="#C8A24A"/>
-      {/* Left-centre spike */}
-      <path d="M37 29 L33 10 L31 16 L27 8 L33 23 Z" fill="#C8A24A"/>
-      {/* Right-centre spike */}
-      <path d="M63 29 L67 10 L69 16 L73 8 L67 23 Z" fill="#C8A24A"/>
-      {/* Far-left spike */}
-      <path d="M25 40 L16 24 L15 32 L9 26 L17 39 Z" fill="#C8A24A"/>
-      {/* Far-right spike */}
-      <path d="M75 40 L84 24 L85 32 L91 26 L83 39 Z" fill="#C8A24A"/>
-    </svg>
-  );
-}
 
 export function Sidebar() {
   const pathname = usePathname();

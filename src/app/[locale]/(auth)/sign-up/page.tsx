@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { EIHLogo } from "@/components/eih-logo";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
@@ -46,10 +47,8 @@ export default function SignUpPage() {
         className="hidden lg:flex lg:w-1/2 flex-col items-start justify-between p-12"
         style={{ background: "linear-gradient(135deg, #8B3520 0%, #C8A24A 100%)" }}
       >
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-white/20">
-            <span className="text-[13px] font-bold text-white">TF</span>
-          </div>
+        <div className="flex items-center gap-3">
+          <EIHLogo size={44} variant="light" />
           <span className="text-[15px] font-semibold text-white">EIH BidDesk</span>
         </div>
         <div>
