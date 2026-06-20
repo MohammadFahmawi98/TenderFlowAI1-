@@ -10,6 +10,7 @@ interface AgentRun {
   progress: number;
   current_task?: string;
   output_doc_id?: string;
+  output_content?: string;
   error?: string;
 }
 
@@ -70,9 +71,33 @@ export function AgentDocumentView({
   }, [tenderId, agentType]);
 
   const html = (() => {
-    if (!doc) return null;
-    const version = doc.document_versions?.find((v) => v.id === doc.current_version_id) ?? doc.document_versions?.[0];
-    return version?.content_html ?? null;
+    // Primary: formatted HTML from document_versions
+    if (doc) {
+      const version = doc.document_versions?.find((v) => v.id === doc.current_version_id) ?? doc.document_versions?.[0];
+      if (version?.content_html) return version.content_html;
+    }
+    // Fallback: raw text stored directly on agent_run (always available after new runs)
+    if (run?.output_content) {
+      return run.output_content
+        .split(/\n{2,}/)
+        .map((p) => {
+          const t = p.trim();
+          if (!t) return "";
+          if (/^#{1,3}\s/.test(t))
+            return `<h3 style="font-weight:600;font-size:15px;margin:16px 0 6px">${t.replace(/^#+\s/, "")}</h3>`;
+          if (/^[A-Z][A-Z\s&:]+$/.test(t))
+            return `<h3 style="font-weight:600;font-size:15px;margin:16px 0 6px">${t}</h3>`;
+          if (/^[-•*]\s/.test(t)) {
+            const items = t.split(/\n[-•*]\s/).map((i) => `<li style="margin:3px 0">${i.replace(/^[-•*]\s/, "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</li>`);
+            return `<ul style="padding-left:20px;margin:6px 0">${items.join("")}</ul>`;
+          }
+          const withBold = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+          return `<p style="margin:0 0 10px;line-height:1.6">${withBold}</p>`;
+        })
+        .filter(Boolean)
+        .join("\n");
+    }
+    return null;
   })();
 
   if (loading) {

@@ -56,9 +56,52 @@ async function setAgent(tenderId: string, agentType: string, update: Record<stri
   await db().from("agent_runs").update(update).eq("tender_id", tenderId).eq("agent_type", agentType);
 }
 
+function textToHtml(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .map((para) => {
+      const trimmed = para.trim();
+      if (!trimmed) return "";
+      // Detect section headings (ALL CAPS or numbered like "1. TITLE" or "## Title")
+      if (/^#{1,3}\s/.test(trimmed)) {
+        return `<h3 style="font-weight:600;font-size:15px;margin:16px 0 6px;color:#1a1a1a">${trimmed.replace(/^#+\s/, "")}</h3>`;
+      }
+      if (/^[A-Z][A-Z\s&]+:?\s*$/.test(trimmed) || /^\d+\.\s+[A-Z]/.test(trimmed)) {
+        return `<h3 style="font-weight:600;font-size:15px;margin:16px 0 6px;color:#1a1a1a">${trimmed}</h3>`;
+      }
+      // Bullet lists
+      if (/^[-•*]\s/.test(trimmed)) {
+        const items = trimmed.split(/\n[-•*]\s/).map((i) => `<li style="margin:3px 0">${i.replace(/^[-•*]\s/, "")}</li>`);
+        return `<ul style="padding-left:20px;margin:6px 0">${items.join("")}</ul>`;
+      }
+      // Numbered list
+      if (/^\d+\.\s/.test(trimmed) && trimmed.includes("\n")) {
+        const items = trimmed.split(/\n\d+\.\s/).map((i) => `<li style="margin:3px 0">${i.replace(/^\d+\.\s/, "")}</li>`);
+        return `<ol style="padding-left:20px;margin:6px 0">${items.join("")}</ol>`;
+      }
+      // Bold inline **text**
+      const withBold = trimmed.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      return `<p style="margin:0 0 10px;line-height:1.6">${withBold}</p>`;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
 async function saveDocument(tenderId: string, agentType: AgentType, content: string) {
   const supabase = db();
-  const { data: doc } = await supabase
+  const html = textToHtml(content);
+
+  // Always save content directly to agent_runs so tab pages can render it
+  // even if the documents table pipeline fails
+  const { error: contentErr } = await supabase
+    .from("agent_runs")
+    .update({ output_content: content })
+    .eq("tender_id", tenderId)
+    .eq("agent_type", agentType);
+  if (contentErr) console.error(`[saveDocument] output_content update failed for ${agentType}:`, contentErr.message);
+
+  // Also persist as a formal document (best-effort)
+  const { data: doc, error: docErr } = await supabase
     .from("documents")
     .insert({
       tender_id: tenderId,
@@ -69,31 +112,29 @@ async function saveDocument(tenderId: string, agentType: AgentType, content: str
     .select()
     .single();
 
+  if (docErr) {
+    console.error(`[saveDocument] documents insert failed for ${agentType}:`, docErr.message);
+    return null;
+  }
   if (!doc) return null;
 
-  const { data: version } = await supabase
+  const { data: version, error: vErr } = await supabase
     .from("document_versions")
     .insert({
       document_id: doc.id,
       version_no: 1,
-      content_html: `<div class="prose">${content.replace(/\n/g, "<br/>")}</div>`,
+      content_html: html,
       content_json: { text: content },
       note: "AI Generated",
     })
     .select()
     .single();
 
-  if (version) {
-    await supabase
-      .from("documents")
-      .update({ current_version_id: version.id })
-      .eq("id", doc.id);
+  if (vErr) console.error(`[saveDocument] document_versions insert failed for ${agentType}:`, vErr.message);
 
-    await supabase
-      .from("agent_runs")
-      .update({ output_doc_id: doc.id })
-      .eq("tender_id", tenderId)
-      .eq("agent_type", agentType);
+  if (version) {
+    await supabase.from("documents").update({ current_version_id: version.id }).eq("id", doc.id);
+    await supabase.from("agent_runs").update({ output_doc_id: doc.id }).eq("tender_id", tenderId).eq("agent_type", agentType);
   }
 
   return doc;
