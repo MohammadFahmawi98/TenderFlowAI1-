@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "@/i18n/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 interface Tender {
   id: string;
@@ -16,11 +17,15 @@ interface Tender {
 }
 
 const STATUS_STYLES: Record<string, { label: string; cls: string }> = {
+  draft:       { label: "Draft",       cls: "text-text-muted bg-surface-dim" },
   analyzing:   { label: "Analyzing",   cls: "text-primary bg-primary-light" },
   in_progress: { label: "In Proposal", cls: "text-primary bg-primary-light" },
   in_review:   { label: "Review Req.", cls: "text-warning bg-warning-bg" },
   ready:       { label: "Ready",       cls: "text-success bg-success-bg" },
   submitted:   { label: "Submitted",   cls: "text-success bg-success-bg" },
+  won:         { label: "Won",         cls: "text-success bg-success-bg border border-success/30" },
+  lost:        { label: "Lost",        cls: "text-danger bg-danger-bg" },
+  no_bid:      { label: "No Bid",      cls: "text-text-muted bg-surface-dim" },
   archived:    { label: "Archived",    cls: "text-text-muted bg-surface-dim" },
 };
 
@@ -176,6 +181,7 @@ export default function TendersPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleteTargets, setDeleteTargets] = useState<Tender[]>([]);
   const [deleting, setDeleting] = useState(false);
+  const [userInitials, setUserInitials] = useState("—");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loadTenders = useCallback(() => {
@@ -185,7 +191,18 @@ export default function TendersPage() {
       .catch(console.error);
   }, []);
 
-  useEffect(() => { loadTenders(); }, [loadTenders]);
+  useEffect(() => {
+    loadTenders();
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        const meta = data.user.user_metadata as Record<string, string> | undefined;
+        const fullName = meta?.full_name ?? meta?.name ?? data.user.email?.split("@")[0] ?? "";
+        const parts = fullName.split(" ");
+        setUserInitials(parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : fullName.slice(0, 2).toUpperCase() || "ME");
+      }
+    });
+  }, [loadTenders]);
 
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return;
@@ -219,13 +236,16 @@ export default function TendersPage() {
     return matchFilter && matchSearch;
   });
 
-  const active = tenders.filter((t) => !["archived", "submitted"].includes(t.status));
-  const pipelineVal = tenders.reduce((s, t) => s + (t.contract_value ?? 0), 0);
-  const upcoming = tenders.filter((t) => t.submission_deadline && daysUntil(t.submission_deadline) >= 0 && daysUntil(t.submission_deadline) <= 30);
+  const active = tenders.filter((t) => !["archived", "submitted", "won", "lost", "no_bid"].includes(t.status));
+  const won = tenders.filter((t) => t.status === "won").length;
+  const pipelineVal = active.reduce((s, t) => s + (t.contract_value ?? 0), 0);
+  const upcoming = tenders.filter((t) => t.submission_deadline && daysUntil(t.submission_deadline) >= 0 && daysUntil(t.submission_deadline) <= 14);
   const withWin = tenders.filter((t) => t.win_probability != null);
   const avgWin = withWin.length
     ? Math.round(withWin.reduce((s, t) => s + (t.win_probability ?? 0), 0) / withWin.length)
     : null;
+  const totalSubmitted = tenders.filter((t) => ["submitted", "won", "lost"].includes(t.status)).length;
+  const winRate = totalSubmitted > 0 ? Math.round((won / totalSubmitted) * 100) : null;
 
   const allSelected = filtered.length > 0 && filtered.every((t) => selected.has(t.id));
 
@@ -261,25 +281,50 @@ export default function TendersPage() {
             <span className="material-symbols-outlined text-[20px]">notifications</span>
           </button>
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-light text-[12px] font-semibold text-primary">
-            AS
+            {userInitials}
           </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-8 py-6">
-        {/* KPI chips */}
-        <div className="mb-5 flex flex-wrap gap-3">
-          {[
-            { label: "Active Tenders", value: String(active.length), cls: "border-primary text-primary bg-primary-light/30" },
-            { label: "Pipeline Value", value: pipelineVal ? fmt(pipelineVal) : "AED 0", cls: "border-border text-text-secondary bg-surface" },
-            { label: "Win Rate", value: avgWin != null ? `${avgWin}%` : "—", cls: "border-border text-text-secondary bg-surface" },
-            { label: "Deadlines", value: String(upcoming.length).padStart(2, "0"), cls: "border-warning text-warning bg-warning-bg" },
-          ].map((kpi) => (
-            <div key={kpi.label} className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-[12px] font-medium ${kpi.cls}`}>
-              <span className="font-bold">{kpi.value}</span>
-              <span>{kpi.label}</span>
+        {/* KPI cards */}
+        <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10.5px] uppercase tracking-wide text-text-secondary font-medium">Active Tenders</p>
+              <span className="material-symbols-outlined text-[16px] text-primary">folder_open</span>
             </div>
-          ))}
+            <p className="text-[28px] font-bold text-text leading-none">{active.length}</p>
+            <p className="text-[11px] text-text-muted mt-1">In progress or review</p>
+          </div>
+          <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10.5px] uppercase tracking-wide text-text-secondary font-medium">Pipeline Value</p>
+              <span className="material-symbols-outlined text-[16px] text-primary">payments</span>
+            </div>
+            <p className="text-[22px] font-bold text-text leading-none">{pipelineVal ? fmt(pipelineVal) : "—"}</p>
+            <p className="text-[11px] text-text-muted mt-1">Active bids combined</p>
+          </div>
+          <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10.5px] uppercase tracking-wide text-text-secondary font-medium">Win Rate</p>
+              <span className="material-symbols-outlined text-[16px] text-success">emoji_events</span>
+            </div>
+            <p className={`text-[28px] font-bold leading-none ${winRate != null ? (winRate >= 50 ? "text-success" : "text-warning") : "text-text"}`}>
+              {winRate != null ? `${winRate}%` : avgWin != null ? `~${avgWin}%` : "—"}
+            </p>
+            <p className="text-[11px] text-text-muted mt-1">{totalSubmitted > 0 ? `${won} of ${totalSubmitted} submitted` : "Avg AI probability"}</p>
+          </div>
+          <div className={`rounded-xl border p-5 shadow-sm ${upcoming.length > 0 ? "border-warning/40 bg-warning/5" : "border-border bg-surface"}`}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10.5px] uppercase tracking-wide text-text-secondary font-medium">Due in 14 Days</p>
+              <span className={`material-symbols-outlined text-[16px] ${upcoming.length > 0 ? "text-warning" : "text-text-muted"}`}>schedule</span>
+            </div>
+            <p className={`text-[28px] font-bold leading-none ${upcoming.length > 0 ? "text-warning" : "text-text"}`}>{upcoming.length}</p>
+            <p className="text-[11px] text-text-muted mt-1">
+              {upcoming.length > 0 ? `Next: ${upcoming[0].name.slice(0, 22)}…` : "No urgent deadlines"}
+            </p>
+          </div>
         </div>
 
         {/* Filters + bulk actions */}
@@ -299,11 +344,15 @@ export default function TendersPage() {
             className="rounded border border-border bg-surface px-3 py-2 text-[13px] text-text-secondary outline-none focus:border-primary"
           >
             <option value="all">All Status</option>
+            <option value="draft">Draft</option>
             <option value="analyzing">Analyzing</option>
             <option value="in_progress">In Proposal</option>
             <option value="in_review">In Review</option>
             <option value="ready">Ready</option>
             <option value="submitted">Submitted</option>
+            <option value="won">Won</option>
+            <option value="lost">Lost</option>
+            <option value="no_bid">No Bid</option>
             <option value="archived">Archived</option>
           </select>
 
@@ -447,33 +496,40 @@ export default function TendersPage() {
           )}
         </div>
 
-        {/* Bottom cards */}
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-lg border border-border bg-surface shadow-sm overflow-hidden">
-            <div className="flex items-start gap-3 p-4" style={{ borderLeft: "3px solid #C8A24A" }}>
-              <span className="material-symbols-outlined text-[20px] text-primary shrink-0 mt-0.5">smart_toy</span>
-              <div>
-                <p className="text-[12px] font-semibold text-text">AI Bid Intelligence</p>
-                <p className="mt-1 text-[11px] text-text-secondary leading-relaxed">
-                  Upload an RFP and click Run AI to generate a complete bid package — technical proposal, compliance, manpower, BOQ, risk register, SLA framework and executive review.
-                </p>
+        {/* Bottom info strip */}
+        {tenders.length > 0 && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border border-border bg-surface shadow-sm overflow-hidden">
+              <div className="flex items-start gap-3 p-4" style={{ borderLeft: "3px solid #C8A24A" }}>
+                <span className="material-symbols-outlined text-[20px] text-primary shrink-0 mt-0.5">smart_toy</span>
+                <div>
+                  <p className="text-[12px] font-semibold text-text">AI Bid Intelligence</p>
+                  <p className="mt-1 text-[11px] text-text-secondary leading-relaxed">
+                    Open any tender workspace and click <strong>Run AI</strong> to generate a complete bid package — compliance, manpower, BOQ, risk register, SLA framework and executive review.
+                  </p>
+                </div>
               </div>
             </div>
+            {upcoming.length > 0 && (
+              <div className="rounded-lg border border-warning/40 bg-warning/5 shadow-sm p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="material-symbols-outlined text-[18px] text-warning">schedule</span>
+                  <p className="text-[12px] font-semibold text-warning">Deadlines Within 14 Days</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {upcoming.slice(0, 3).map((t) => (
+                    <div key={t.id} className="flex items-center justify-between">
+                      <p className="text-[12.5px] font-medium text-text truncate max-w-[200px]">{t.name}</p>
+                      <span className={`text-[11px] font-semibold ${daysUntil(t.submission_deadline!) <= 3 ? "text-danger" : "text-warning"}`}>
+                        {daysUntil(t.submission_deadline!)}d left
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          {upcoming.length > 0 && (
-            <div className="rounded-lg border border-warning bg-warning-bg shadow-sm p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="material-symbols-outlined text-[18px] text-warning">schedule</span>
-                <p className="text-[12px] font-semibold text-warning">Upcoming Deadline</p>
-              </div>
-              <p className="text-[13px] font-medium text-text">{upcoming[0].name}</p>
-              <p className="text-[11px] text-text-secondary mt-0.5">
-                Due in {daysUntil(upcoming[0].submission_deadline!)} days &middot;{" "}
-                {new Date(upcoming[0].submission_deadline!).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-              </p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
