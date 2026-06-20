@@ -1,9 +1,18 @@
 ﻿import { complete } from "./provider";
 
-const FM_SYSTEM = `You are a specialist FM (Facility Management) bid consultant working for Etihad International Hospitality.
-You produce professional, detailed, submission-ready content for FM tenders in the UAE/GCC market.
-Write in clear business English. Be specific, quantified, and professional.
-Return only the requested content â€” no meta-commentary.`;
+const FM_SYSTEM = `You are a senior FM (Facility Management) bid director at Etihad International Hospitality (EIH), a leading UAE hospitality FM company.
+You produce professional, submission-ready bid content for FM tenders in the UAE/GCC market.
+
+FORMATTING RULES — follow these exactly:
+- Use ALL-CAPS lines for section headings (e.g. “COMPLIANCE MATRIX”, “STAFFING PLAN”)
+- Use proper markdown tables for all tabular data: | Column | Column | Column |
+  Always include a separator row: |--------|--------|--------|
+  Every table row must start and end with |
+- Use **bold** for emphasis within text
+- Use bullet lists with - for items
+- Be specific and quantified — include AED amounts, headcounts, percentages, timelines
+- Do NOT include meta-commentary, preambles, or “Here is the...” phrases
+- Write as if this is the final submission document`;
 
 export interface ExtractionContext {
   tender_name: string;
@@ -42,7 +51,7 @@ Produce a strategic intelligence brief with:
 8. RECOMMENDED BID STRATEGY
 
 Be specific to UAE/GCC FM market dynamics and Etihad International Hospitality's positioning.`,
-    maxTokens: 900,
+    maxTokens: 2000,
   });
 }
 
@@ -66,7 +75,7 @@ Produce a professional qualification assessment with these sections:
 5. RECOMMENDED STRATEGY
 
 Format as professional business document text.`,
-    maxTokens: 800,
+    maxTokens: 2000,
   });
 }
 
@@ -83,12 +92,23 @@ Commercial Requirements: ${ctx.commercial_requirements.join("; ")}
 Evaluation Criteria: ${ctx.evaluation_criteria.join("; ")}
 
 Produce:
-1. COMPLIANCE MATRIX â€” for each requirement state: Requirement | Our Response | Compliance Status (Fully/Partially/Non-Compliant) | Reference Document
-2. SUBMISSION CHECKLIST â€” all documents required for submission with status
-3. MISSING DOCUMENTS REPORT â€” items that need to be prepared
 
-Format as structured professional content.`,
-    maxTokens: 900,
+COMPLIANCE MATRIX
+
+| Requirement | Our Response | Status | Reference Document |
+|-------------|--------------|--------|-------------------|
+(list all technical and commercial requirements from the tender)
+
+SUBMISSION CHECKLIST
+
+| Document | Status | Notes |
+|----------|--------|-------|
+(list all required submission documents)
+
+MISSING DOCUMENTS REPORT
+
+List any documents that still need to be prepared, with owner and due date.`,
+    maxTokens: 2000,
   });
 }
 
@@ -119,7 +139,7 @@ Write a full Technical Proposal with these sections:
 10. KEY PERFORMANCE INDICATORS
 
 This must be submission-ready, specific to FM, and tailored to the client's requirements.`,
-    maxTokens: 1200,
+    maxTokens: 2500,
   });
 }
 
@@ -145,7 +165,7 @@ Produce:
 6. VALUE ENGINEERING OPPORTUNITIES
 
 Be specific with AED cost ranges based on UAE FM market rates.`,
-    maxTokens: 900,
+    maxTokens: 2000,
   });
 }
 
@@ -162,16 +182,41 @@ Staffing Requirements: ${ctx.staffing_requirements.join("; ")}
 Contract Duration: ${ctx.contract_duration ?? "As per tender"}
 
 Produce:
-1. ORGANIZATIONAL CHART (describe hierarchy in text)
-2. STAFFING PLAN â€” role | headcount | qualifications | responsibilities
-3. KEY PERSONNEL PROFILES (FM Manager, Supervisors, Technicians)
-4. SHIFT MATRIX (day/night/weekend coverage)
-5. MOBILIZATION TIMELINE (Month 1-3)
-6. TRAINING & DEVELOPMENT PLAN
-7. STAFF RETENTION STRATEGY
 
-Tailor to UAE FM industry standards and Labour Law requirements.`,
-    maxTokens: 900,
+ORGANIZATIONAL STRUCTURE
+
+Describe the reporting hierarchy (FM Manager → Supervisors → Technicians → Support).
+
+STAFFING PLAN
+
+| Role | Headcount | Qualifications Required | Monthly Cost (AED) | Responsibilities |
+|------|-----------|------------------------|-------------------|-----------------|
+(include all roles with realistic UAE FM market salaries)
+
+KEY PERSONNEL PROFILES
+
+For FM Manager, Lead Supervisor, and Senior Technician: name the profile, experience level, certifications (e.g. BIFM, ISO 45001), responsibilities.
+
+SHIFT MATRIX
+
+| Shift | Hours | Days | Roles Covered | Headcount |
+|-------|-------|------|---------------|-----------|
+(day/night/weekend/public holiday coverage)
+
+MOBILIZATION TIMELINE
+
+| Phase | Week | Activity | Deliverable |
+|-------|------|----------|-------------|
+(weeks 1–12)
+
+TRAINING & DEVELOPMENT PLAN
+
+List mandatory training by role with frequency and certification body.
+
+STAFF RETENTION STRATEGY
+
+Key initiatives for staff retention in UAE FM market.`,
+    maxTokens: 2000,
   });
 }
 
@@ -187,16 +232,41 @@ Scope: ${ctx.scope_of_work}
 Asset Information: ${ctx.asset_information.join("; ")}
 
 Produce:
-1. PPM PHILOSOPHY & APPROACH
-2. ASSET REGISTER SUMMARY (by system: MEP, Civil, Landscaping, etc.)
-3. MAINTENANCE FREQUENCY MATRIX â€” Asset | Frequency | Manhours | Standard
-4. ANNUAL PPM SCHEDULE OVERVIEW (by month)
-5. REACTIVE MAINTENANCE RESPONSE TIMES
-6. SPARE PARTS & MATERIALS STRATEGY
-7. ASSET LIFECYCLE MANAGEMENT
 
-Reference UAE/DEWA/ADDC standards and OEM recommendations.`,
-    maxTokens: 900,
+PPM PHILOSOPHY & APPROACH
+
+Brief paragraph on EIH's PPM methodology (condition-based, CMMS-driven, OEM-aligned).
+
+ASSET REGISTER SUMMARY
+
+| Asset Category | Asset Type | Quantity (Est.) | Criticality | Applicable Standard |
+|----------------|-----------|----------------|-------------|-------------------|
+
+MAINTENANCE FREQUENCY MATRIX
+
+| Asset Type | Frequency | Man-Hours/Visit | Annual Man-Hours | Standard/Code |
+|-----------|-----------|----------------|-----------------|--------------|
+(cover HVAC, electrical, plumbing, fire safety, civil, landscaping, MEP)
+
+ANNUAL PPM SCHEDULE
+
+| Month | Services to be Performed |
+|-------|--------------------------|
+(all 12 months)
+
+REACTIVE MAINTENANCE RESPONSE TIMES
+
+| Priority | Response Time | Resolution Time | Example |
+|----------|--------------|----------------|---------|
+
+SPARE PARTS & MATERIALS STRATEGY
+
+Key principles for spares management, critical stock levels, procurement.
+
+ASSET LIFECYCLE MANAGEMENT
+
+How EIH tracks asset age, plans replacements, and advises clients on CapEx.`,
+    maxTokens: 2000,
   });
 }
 
@@ -211,15 +281,30 @@ Client: ${ctx.client_name}
 Scope: ${ctx.scope_of_work}
 
 Produce:
-1. RISK MANAGEMENT APPROACH
-2. RISK REGISTER TABLE â€” Risk | Category | Likelihood (1-5) | Impact (1-5) | Score | Owner | Mitigation | Residual Risk
-   Include at least 15 specific FM risks covering: operational, commercial, HSE, regulatory, staffing, technical
-3. TOP 5 CRITICAL RISKS (detailed mitigation plans)
-4. OPPORTUNITY REGISTER
-5. RISK MONITORING PLAN
 
-Use UAE FM market context.`,
-    maxTokens: 900,
+RISK MANAGEMENT APPROACH
+
+Brief paragraph on EIH's risk management philosophy.
+
+RISK REGISTER
+
+| # | Risk Description | Category | Likelihood (1-5) | Impact (1-5) | Score | Owner | Mitigation Action | Residual Risk |
+|---|-----------------|----------|-----------------|-------------|-------|-------|------------------|---------------|
+(include at least 15 specific FM risks: operational, commercial, HSE, regulatory, staffing, technical, financial)
+
+TOP 5 CRITICAL RISKS
+
+For the 5 highest-scored risks, provide detailed mitigation plans with specific actions, timeline, and responsible party.
+
+OPPORTUNITY REGISTER
+
+| Opportunity | Potential Value | Probability | Action Required |
+|-------------|----------------|-------------|----------------|
+
+RISK MONITORING PLAN
+
+How risks will be tracked, reported, and escalated during contract delivery.`,
+    maxTokens: 2000,
   });
 }
 
@@ -246,7 +331,7 @@ Produce:
 10. REGULATORY COMPLIANCE (UAE/AD/Dubai authorities)
 
 Reference UAE Labour Law, OSHAD-SF, and relevant authority requirements.`,
-    maxTokens: 900,
+    maxTokens: 2000,
   });
 }
 
@@ -278,7 +363,7 @@ SLIDE 14: Why Choose Us â€” Key Differentiators
 SLIDE 15: Call to Action & Next Steps
 
 For each slide: TITLE | KEY MESSAGES (3-4 bullets) | SPEAKER NOTES`,
-    maxTokens: 1000,
+    maxTokens: 2000,
   });
 }
 
@@ -295,19 +380,35 @@ Technical Requirements: ${ctx.technical_requirements.join("; ")}
 Contract Duration: ${ctx.contract_duration ?? "As per tender"}
 
 Produce:
-1. SERVICE LEVEL AGREEMENT FRAMEWORK
-   - P1 Emergency Response (target time, measurement, penalty)
-   - P2 Urgent Response (target time, measurement, penalty)
-   - P3 Routine Rectification (target time, measurement, penalty)
-   - P4 Planned Works (target time, measurement, penalty)
-2. KEY PERFORMANCE INDICATORS (at least 10 KPIs)
-   For each: KPI Name | Target | Measurement Method | Reporting Frequency | Consequence of Failure
-3. PENALTY & INCENTIVE REGIME
-4. PERFORMANCE REVIEW PROCESS
-5. REPORTING REQUIREMENTS
 
-Use UAE FM market standards. Reference ISO 41001 where appropriate.`,
-    maxTokens: 900,
+SERVICE LEVEL AGREEMENT FRAMEWORK
+
+| Priority | Category | Response Time | Resolution Time | Measurement | Penalty for Breach |
+|----------|----------|--------------|----------------|-------------|-------------------|
+| P1 — Critical | Life safety, total loss of service | 30 min | 4 hours | CMMS timestamp | 2% monthly fee |
+| P2 — Urgent | Major impact on operations | 2 hours | 8 hours | CMMS timestamp | 1% monthly fee |
+| P3 — Routine | Minor impact | 8 hours | 3 working days | CMMS timestamp | Formal warning |
+| P4 — Planned | Scheduled works | As agreed | As agreed | PPM completion rate | Deduction |
+
+KEY PERFORMANCE INDICATORS
+
+| KPI | Target | Measurement Method | Frequency | Consequence of Failure |
+|-----|--------|-------------------|-----------|----------------------|
+(include at least 12 KPIs covering: PPM completion rate, reactive response, customer satisfaction, energy performance, HSE, staff availability, helpdesk resolution, asset uptime)
+
+PENALTY & INCENTIVE REGIME
+
+Detail the financial penalty structure and any bonus/incentive provisions.
+
+PERFORMANCE REVIEW PROCESS
+
+Monthly, quarterly, and annual review cadence, attendees, agenda, and escalation path.
+
+REPORTING REQUIREMENTS
+
+| Report | Frequency | Format | Recipient | Deadline |
+|--------|-----------|--------|-----------|----------|`,
+    maxTokens: 2000,
   });
 }
 
@@ -351,7 +452,7 @@ Return as JSON:
   "action_items": ["array"],
   "full_report": "string"
 }`,
-    maxTokens: 800,
+    maxTokens: 2000,
     responseFormat: "json",
   });
 }

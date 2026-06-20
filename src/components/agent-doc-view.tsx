@@ -17,6 +17,96 @@ interface AgentRun {
 interface DocVersion { id: string; content_html?: string; }
 interface AgentDoc { id: string; title: string; current_version_id?: string; document_versions?: DocVersion[]; }
 
+// ── Markdown → HTML renderer with proper table support ───────────────────────
+
+function b(s: string): string {
+  return s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
+function parseMarkdownTable(lines: string[]): string {
+  const rows = lines.map((l) =>
+    l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim()),
+  );
+  if (rows.length === 0) return "";
+  const sepIdx = rows.findIndex((r) => r.every((c) => /^[-: ]+$/.test(c)));
+  const header = rows[0];
+  const data = rows.filter((_, i) => i !== 0 && i !== sepIdx);
+  const th = `padding:9px 14px;text-align:left;font-weight:600;font-size:12px;background:#8B3520;color:white;border:1px solid #7a2d1a;white-space:nowrap`;
+  const td = (odd: boolean) =>
+    `padding:8px 14px;font-size:12.5px;border:1px solid #e5e7eb;vertical-align:top;line-height:1.5;background:${odd ? "#fdf9f7" : "white"}`;
+  const thead = `<thead><tr>${header.map((h) => `<th style="${th}">${h}</th>`).join("")}</tr></thead>`;
+  const tbody = `<tbody>${data.map((row, ri) =>
+    `<tr>${row.map((cell) => `<td style="${td(ri % 2 === 1)}">${b(cell)}</td>`).join("")}</tr>`,
+  ).join("")}</tbody>`;
+  return `<div style="overflow-x:auto;margin:14px 0"><table style="width:100%;border-collapse:collapse;border-radius:6px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08)">${thead}${tbody}</table></div>`;
+}
+
+function markdownToHtml(text: string): string {
+  const lines = text.split("\n");
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const raw = lines[i];
+    const t = raw.trim();
+    if (!t) { i++; continue; }
+
+    if (t.startsWith("|")) {
+      const tbl: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) tbl.push(lines[i++]);
+      out.push(parseMarkdownTable(tbl));
+      continue;
+    }
+
+    if (/^#{1,3}\s/.test(t)) {
+      const lvl = t.match(/^(#+)/)?.[1].length ?? 1;
+      const txt = t.replace(/^#+\s+/, "");
+      out.push(
+        lvl <= 2
+          ? `<h2 style="font-weight:700;font-size:16px;margin:22px 0 8px;color:#1a1a1a;border-bottom:2px solid #C8A24A;padding-bottom:5px">${txt}</h2>`
+          : `<h3 style="font-weight:600;font-size:14px;margin:16px 0 6px;color:#1a1a1a">${txt}</h3>`,
+      );
+      i++; continue;
+    }
+
+    if (/^(\d+\.\s+)?[A-Z][A-Z\s\d&./:(),-]{2,79}$/.test(t)) {
+      out.push(`<h3 style="font-weight:700;font-size:13px;margin:20px 0 7px;color:#8B3520;letter-spacing:0.04em">${t}</h3>`);
+      i++; continue;
+    }
+
+    if (/^[-•*]\s/.test(t)) {
+      const items: string[] = [];
+      while (i < lines.length && /^[-•*]\s/.test(lines[i].trim())) {
+        items.push(b(lines[i].trim().replace(/^[-•*]\s+/, "")));
+        i++;
+      }
+      out.push(`<ul style="margin:8px 0;padding-left:20px">${items.map((it) => `<li style="margin:4px 0;line-height:1.65">${it}</li>`).join("")}</ul>`);
+      continue;
+    }
+
+    if (/^\d+\.\s/.test(t) && /^\d+\.\s/.test(lines[i + 1]?.trim() ?? "")) {
+      const items: string[] = [];
+      while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
+        items.push(b(lines[i].trim().replace(/^\d+\.\s+/, "")));
+        i++;
+      }
+      out.push(`<ol style="margin:8px 0;padding-left:20px">${items.map((it) => `<li style="margin:4px 0;line-height:1.65">${it}</li>`).join("")}</ol>`);
+      continue;
+    }
+
+    const para: string[] = [];
+    while (i < lines.length) {
+      const l = lines[i].trim();
+      if (!l || l.startsWith("|") || /^#{1,3}\s/.test(l) || /^[-•*]\s/.test(l) || /^(\d+\.\s+)?[A-Z][A-Z\s\d&./:(),-]{2,79}$/.test(l)) break;
+      para.push(b(l));
+      i++;
+    }
+    if (para.length) out.push(`<p style="margin:0 0 10px;line-height:1.7">${para.join(" ")}</p>`);
+  }
+  return out.join("\n");
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
+
 export function AgentDocumentView({
   tenderId,
   agentType,
@@ -31,6 +121,10 @@ export function AgentDocumentView({
   const [run, setRun] = useState<AgentRun | null>(null);
   const [doc, setDoc] = useState<AgentDoc | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
   const router = useRouter();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -70,33 +164,50 @@ export function AgentDocumentView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenderId, agentType]);
 
+  function startEdit() {
+    setEditContent(run?.output_content ?? "");
+    setEditing(true);
+  }
+
+  async function saveEdit() {
+    setSaving(true);
+    await fetch(`/api/tenders/${tenderId}/agents`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agent_type: agentType, output_content: editContent }),
+    });
+    setSaving(false);
+    setEditing(false);
+    await load();
+  }
+
+  function exportSection() {
+    const content = run?.output_content ?? "";
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${title.replace(/\s+/g, "_")}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  async function copyToClipboard() {
+    try {
+      await navigator.clipboard.writeText(run?.output_content ?? "");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  }
+
   const html = (() => {
-    // Primary: formatted HTML from document_versions
+    if (editing) return null;
     if (doc) {
       const version = doc.document_versions?.find((v) => v.id === doc.current_version_id) ?? doc.document_versions?.[0];
       if (version?.content_html) return version.content_html;
     }
-    // Fallback: raw text stored directly on agent_run (always available after new runs)
-    if (run?.output_content) {
-      return run.output_content
-        .split(/\n{2,}/)
-        .map((p) => {
-          const t = p.trim();
-          if (!t) return "";
-          if (/^#{1,3}\s/.test(t))
-            return `<h3 style="font-weight:600;font-size:15px;margin:16px 0 6px">${t.replace(/^#+\s/, "")}</h3>`;
-          if (/^[A-Z][A-Z\s&:]+$/.test(t))
-            return `<h3 style="font-weight:600;font-size:15px;margin:16px 0 6px">${t}</h3>`;
-          if (/^[-•*]\s/.test(t)) {
-            const items = t.split(/\n[-•*]\s/).map((i) => `<li style="margin:3px 0">${i.replace(/^[-•*]\s/, "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</li>`);
-            return `<ul style="padding-left:20px;margin:6px 0">${items.join("")}</ul>`;
-          }
-          const withBold = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-          return `<p style="margin:0 0 10px;line-height:1.6">${withBold}</p>`;
-        })
-        .filter(Boolean)
-        .join("\n");
-    }
+    if (run?.output_content) return markdownToHtml(run.output_content);
     return null;
   })();
 
@@ -170,22 +281,71 @@ export function AgentDocumentView({
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-[18px] font-semibold text-text">{title}</h2>
           {description && <p className="mt-1 text-[13px] text-text-secondary">{description}</p>}
         </div>
-        {doc && (
-          <a
-            href={`/tenders/${tenderId}/documents`}
-            className="shrink-0 rounded border border-border px-3 py-1.5 text-[12px] text-text-secondary hover:border-primary/40 hover:text-primary transition-colors"
-          >
-            Edit in Documents →
-          </a>
+        {!editing && html && (
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={copyToClipboard}
+              title="Copy raw content"
+              className="flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-[12px] text-text-secondary hover:border-primary/40 hover:text-primary transition-colors"
+            >
+              <span className="material-symbols-outlined text-[14px]">{copied ? "check" : "content_copy"}</span>
+              {copied ? "Copied" : "Copy"}
+            </button>
+            <button
+              onClick={exportSection}
+              title="Download as .txt"
+              className="flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-[12px] text-text-secondary hover:border-primary/40 hover:text-primary transition-colors"
+            >
+              <span className="material-symbols-outlined text-[14px]">download</span>
+              Export
+            </button>
+            <button
+              onClick={startEdit}
+              className="flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-[12px] text-text-secondary hover:border-primary/40 hover:text-primary transition-colors"
+            >
+              <span className="material-symbols-outlined text-[14px]">edit</span>
+              Edit
+            </button>
+          </div>
         )}
       </div>
 
-      {html ? (
+      {/* Edit mode */}
+      {editing ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] text-text-muted">
+            Edit raw content below. Markdown tables (<code>| col | col |</code>), <strong>bold</strong>, bullet lists, and headings are supported.
+          </p>
+          <textarea
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            className="h-[60vh] w-full resize-y rounded-lg border border-border bg-surface p-4 font-mono text-[12.5px] leading-relaxed text-text outline-none focus:border-primary transition-colors"
+            spellCheck={false}
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={saveEdit}
+              disabled={saving}
+              className="flex items-center gap-2 rounded bg-primary px-5 py-2 text-[13px] font-semibold text-white hover:bg-primary-btn disabled:opacity-60 transition-colors"
+            >
+              {saving && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              className="rounded border border-border px-5 py-2 text-[13px] text-text-secondary hover:bg-surface-dim transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : html ? (
         <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
           <div
             className="agent-content max-w-none text-[14px] leading-relaxed text-text"

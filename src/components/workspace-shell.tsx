@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, Link, useRouter } from "@/i18n/navigation";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface Tender {
   id: string;
@@ -48,6 +48,29 @@ export function WorkspaceShell({
   const router = useRouter();
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState("");
+  const [showMenu, setShowMenu] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  async function deleteTender() {
+    if (!tenderId) return;
+    setDeleting(true);
+    await fetch(`/api/tenders/${tenderId}`, { method: "DELETE" });
+    setDeleting(false);
+    setConfirmDelete(false);
+    router.push("/tenders");
+  }
 
   const tenderId = tender?.id;
   const base = `/tenders/${tenderId}`;
@@ -127,9 +150,6 @@ export function WorkspaceShell({
 
           {/* Action buttons */}
           <div className="flex shrink-0 items-center gap-2">
-            <button className="rounded border border-border px-3.5 py-2 text-[12px] font-medium text-text-secondary hover:bg-surface-dim transition-colors">
-              Save Changes
-            </button>
             <Link
               href={`/tenders/${tenderId}/export`}
               className="rounded px-3.5 py-2 text-[12px] font-semibold text-white transition-colors"
@@ -148,6 +168,27 @@ export function WorkspaceShell({
               <span className="material-symbols-outlined text-[15px]">smart_toy</span>
               {running ? "Running…" : "Run AI"}
             </button>
+            {/* More actions menu */}
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setShowMenu((v) => !v)}
+                className="flex items-center rounded border border-border p-2 text-text-secondary hover:bg-surface-dim transition-colors"
+                title="More actions"
+              >
+                <span className="material-symbols-outlined text-[18px]">more_vert</span>
+              </button>
+              {showMenu && (
+                <div className="absolute end-0 top-full z-50 mt-1 w-44 rounded-lg border border-border bg-surface shadow-lg">
+                  <button
+                    onClick={() => { setShowMenu(false); setConfirmDelete(true); }}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-[13px] text-danger hover:bg-danger-bg transition-colors rounded-lg"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">delete</span>
+                    Delete Tender
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -191,6 +232,39 @@ export function WorkspaceShell({
           {children}
         </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-danger-bg">
+                <span className="material-symbols-outlined text-[18px] text-danger">delete_forever</span>
+              </div>
+              <h3 className="text-[16px] font-semibold text-text">Delete Tender?</h3>
+            </div>
+            <p className="text-[13px] text-text-secondary">
+              This will permanently delete <strong>{tender?.name ?? "this tender"}</strong> and all associated documents, agent outputs, and files. This action cannot be undone.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={deleteTender}
+                disabled={deleting}
+                className="flex flex-1 items-center justify-center gap-2 rounded bg-danger px-4 py-2.5 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-60 transition-opacity"
+              >
+                {deleting && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                {deleting ? "Deleting…" : "Yes, Delete"}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 rounded border border-border px-4 py-2.5 text-[13px] font-medium text-text-secondary hover:bg-surface-dim transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
