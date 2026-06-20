@@ -1,12 +1,11 @@
-import OpenAI from "openai";
+﻿import OpenAI from "openai";
 
-let _client: OpenAI | null = null;
+function clean(s: string | undefined): string {
+  return (s ?? "").replace(/^﻿/, "").trim();
+}
 
 function getClient(): OpenAI {
-  if (!_client) {
-    _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-  }
-  return _client;
+  return new OpenAI({ apiKey: clean(process.env.OPENAI_API_KEY) });
 }
 
 export interface CompletionOptions {
