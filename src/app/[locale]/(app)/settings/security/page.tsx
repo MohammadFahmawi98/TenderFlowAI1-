@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const SETTINGS_NAV = [
   { label: "Profile",       href: "/settings",               icon: "person" },
   { label: "Security",      href: "/settings/security",      icon: "lock" },
-  { label: "AI Models",     href: "/settings/ai-models",     icon: "smart_toy" },
   { label: "Notifications", href: "/settings/notifications", icon: "notifications" },
   { label: "Team",          href: "/settings/team",          icon: "group" },
 ];
@@ -25,6 +24,7 @@ const AUDIT_LOG = [
 ];
 
 export default function SecurityPage() {
+  const [userInitials, setUserInitials] = useState("—");
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -32,6 +32,18 @@ export default function SecurityPage() {
   const [pwSaving, setPwSaving] = useState(false);
   const [pwMsg, setPwMsg] = useState("");
   const [pwError, setPwError] = useState("");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        const meta = data.user.user_metadata as Record<string, string> | undefined;
+        const fullName = meta?.full_name ?? meta?.name ?? data.user.email?.split("@")[0] ?? "";
+        const parts = fullName.split(" ");
+        setUserInitials(parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : fullName.slice(0, 2).toUpperCase() || "ME");
+      }
+    });
+  }, []);
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -61,7 +73,7 @@ export default function SecurityPage() {
           <p className="text-[12px] text-text-secondary mt-0.5">Manage your account and preferences</p>
         </div>
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-light text-[12px] font-semibold text-primary">
-          AS
+          {userInitials}
         </div>
       </div>
       <div className="flex flex-1 overflow-hidden">

@@ -5,11 +5,10 @@ import { Link, usePathname } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const SETTINGS_NAV = [
-  { label: "Profile",       href: "/settings",              icon: "person" },
-  { label: "Security",      href: "/settings/security",     icon: "lock" },
-  { label: "AI Models",     href: "/settings/ai-models",    icon: "smart_toy" },
+  { label: "Profile",       href: "/settings",               icon: "person" },
+  { label: "Security",      href: "/settings/security",      icon: "lock" },
   { label: "Notifications", href: "/settings/notifications", icon: "notifications" },
-  { label: "Team",          href: "/settings/team",         icon: "group" },
+  { label: "Team",          href: "/settings/team",          icon: "group" },
 ];
 
 function SettingsLayout({ children, activeHref, initials = "--" }: { children: React.ReactNode; activeHref: string; initials?: string }) {

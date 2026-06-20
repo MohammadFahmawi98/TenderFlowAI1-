@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "@/i18n/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 const SETTINGS_NAV = [
   { label: "Profile",       href: "/settings",               icon: "person" },
   { label: "Security",      href: "/settings/security",      icon: "lock" },
-  { label: "AI Models",     href: "/settings/ai-models",     icon: "smart_toy" },
   { label: "Notifications", href: "/settings/notifications", icon: "notifications" },
   { label: "Team",          href: "/settings/team",          icon: "group" },
 ];
@@ -55,6 +55,21 @@ const DEFAULT_SETTINGS: Record<string, boolean> = {
 export default function NotificationsPage() {
   const [settings, setSettings] = useState<Record<string, boolean>>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
+  const [userInitials, setUserInitials] = useState("—");
+
+  useEffect(() => {
+    const stored = localStorage.getItem("notification_settings");
+    if (stored) setSettings(JSON.parse(stored));
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        const meta = data.user.user_metadata as Record<string, string> | undefined;
+        const fullName = meta?.full_name ?? meta?.name ?? data.user.email?.split("@")[0] ?? "";
+        const parts = fullName.split(" ");
+        setUserInitials(parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : fullName.slice(0, 2).toUpperCase() || "ME");
+      }
+    });
+  }, []);
 
   function toggle(key: string) {
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -74,7 +89,7 @@ export default function NotificationsPage() {
           <p className="text-[12px] text-text-secondary mt-0.5">Manage your account and preferences</p>
         </div>
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-light text-[12px] font-semibold text-primary">
-          AS
+          {userInitials}
         </div>
       </div>
       <div className="flex flex-1 overflow-hidden">
