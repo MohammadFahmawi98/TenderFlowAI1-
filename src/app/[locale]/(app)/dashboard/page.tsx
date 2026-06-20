@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "@/i18n/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 interface Tender {
   id: string;
@@ -16,11 +17,15 @@ interface Tender {
 }
 
 const STATUS_STYLES: Record<string, { label: string; cls: string }> = {
+  draft:       { label: "Draft",       cls: "text-text-muted bg-surface-dim" },
   analyzing:   { label: "Analyzing",   cls: "text-primary bg-primary-light" },
   in_progress: { label: "In Proposal", cls: "text-warning bg-warning-bg" },
   in_review:   { label: "Review",      cls: "text-warning bg-warning-bg" },
   ready:       { label: "Ready",       cls: "text-success bg-success-bg" },
   submitted:   { label: "Submitted",   cls: "text-success bg-success-bg" },
+  won:         { label: "Won",         cls: "text-success bg-success-bg" },
+  lost:        { label: "Lost",        cls: "text-danger bg-danger-bg" },
+  no_bid:      { label: "No Bid",      cls: "text-text-muted bg-surface-dim" },
   archived:    { label: "Archived",    cls: "text-text-muted bg-surface-dim" },
 };
 
@@ -38,12 +43,25 @@ export default function DashboardPage() {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [showNotif, setShowNotif] = useState(false);
+  const [userName, setUserName] = useState("");
+  const [userInitials, setUserInitials] = useState("—");
 
   useEffect(() => {
     fetch("/api/tenders")
       .then((r) => r.json())
       .then((d) => { if (Array.isArray(d)) setTenders(d); })
       .catch(console.error);
+
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        const meta = data.user.user_metadata as Record<string, string> | undefined;
+        const fullName = meta?.full_name ?? meta?.name ?? data.user.email?.split("@")[0] ?? "";
+        setUserName(fullName.split(" ")[0] || "");
+        const parts = fullName.split(" ");
+        setUserInitials(parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : fullName.slice(0, 2).toUpperCase() || "ME");
+      }
+    });
   }, []);
 
   async function handleFiles(files: FileList | null) {
@@ -59,46 +77,56 @@ export default function DashboardPage() {
     finally { setUploading(false); }
   }
 
-  const active = tenders.filter((t) => !["archived", "submitted"].includes(t.status));
-  const pipelineVal = tenders.reduce((s, t) => s + (t.contract_value ?? 0), 0);
+  const active = tenders.filter((t) => !["archived", "submitted", "won", "lost", "no_bid"].includes(t.status));
+  const won = tenders.filter((t) => t.status === "won").length;
+  const totalSubmitted = tenders.filter((t) => ["submitted", "won", "lost"].includes(t.status)).length;
+  const winRate = totalSubmitted > 0 ? Math.round((won / totalSubmitted) * 100) : null;
+  const pipelineVal = active.reduce((s, t) => s + (t.contract_value ?? 0), 0);
   const upcoming = tenders
     .filter((t) => t.submission_deadline && daysUntil(t.submission_deadline) >= 0 && daysUntil(t.submission_deadline) <= 30)
     .sort((a, b) => new Date(a.submission_deadline!).getTime() - new Date(b.submission_deadline!).getTime());
   const withWin = tenders.filter((t) => t.win_probability != null);
   const avgWin = withWin.length
     ? Math.round(withWin.reduce((s, t) => s + (t.win_probability ?? 0), 0) / withWin.length)
-    : 68;
+    : null;
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+  const displayWinRate = winRate != null ? `${winRate}%` : avgWin != null ? `~${avgWin}%` : "—";
+  const winRateSub = winRate != null
+    ? `${won} won of ${totalSubmitted} submitted`
+    : avgWin != null ? "AI probability avg" : "No submissions yet";
 
   const KPI = [
     {
       label: "Active Tenders",
       value: String(active.length),
-      sub: `${tenders.length} total`,
-      icon: "description",
+      sub: `${tenders.length} total across all stages`,
+      icon: "folder_open",
       color: "text-primary",
     },
     {
       label: "Win Rate",
-      value: withWin.length ? `${avgWin}%` : "—",
-      sub: withWin.length ? "AI estimate" : "No data yet",
-      icon: "trending_up",
+      value: displayWinRate,
+      sub: winRateSub,
+      icon: "emoji_events",
       color: "text-success",
     },
     {
       label: "Pipeline Value",
-      value: pipelineVal ? fmt(pipelineVal) : "AED 0",
-      sub: "total contract value",
+      value: pipelineVal ? fmt(pipelineVal) : "—",
+      sub: "Active bids combined",
       icon: "payments",
       color: "text-primary",
     },
     {
       label: "Upcoming Deadlines",
       value: String(upcoming.length),
-      sub: upcoming.length > 0 ? `Next: ${daysUntil(upcoming[0]?.submission_deadline!)}d` : "None in 30 days",
+      sub: upcoming.length > 0 ? `Next in ${daysUntil(upcoming[0]?.submission_deadline!)}d` : "None in 30 days",
       icon: "schedule",
-      color: "text-warning",
+      color: upcoming.length > 0 ? "text-warning" : "text-text-muted",
     },
   ];
 
@@ -107,7 +135,9 @@ export default function DashboardPage() {
       {/* Page header */}
       <div className="flex items-center justify-between px-8 py-4 border-b border-border-light bg-surface">
         <div>
-          <h1 className="text-[20px] font-semibold text-text">Dashboard</h1>
+          <h1 className="text-[20px] font-semibold text-text">
+            {userName ? `${greeting}, ${userName}` : "Dashboard"}
+          </h1>
           <p className="text-[12px] text-text-secondary mt-0.5">{today}</p>
         </div>
         <div className="flex items-center gap-3 relative">
@@ -127,7 +157,7 @@ export default function DashboardPage() {
             </div>
           )}
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-light text-[12px] font-semibold text-primary cursor-pointer">
-            AS
+            {userInitials}
           </div>
         </div>
       </div>
