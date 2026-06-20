@@ -37,17 +37,23 @@ export async function POST(
   const extractedTexts: string[] = [];
 
   await Promise.all(
-    files.map(async (file) => {
+    files.map(async (file, idx) => {
       const arrayBuf = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuf);
-      const storagePath = `${tenderId}/${Date.now()}-${file.name}`;
+      // Use index to guarantee unique path when multiple files upload simultaneously
+      const storagePath = `${tenderId}/${Date.now()}-${idx}-${file.name}`;
 
+      // Fire storage upload best-effort — do NOT gate extraction on it
       const { error: storageErr } = await supabase.storage
         .from("tender-files")
         .upload(storagePath, buffer, {
           contentType: file.type || "application/octet-stream",
           upsert: false,
         });
+
+      if (storageErr) {
+        console.warn(`Storage upload failed for ${file.name}: ${storageErr.message}`);
+      }
 
       await supabase.from("tender_files").insert({
         tender_id: tenderId,
@@ -56,27 +62,27 @@ export async function POST(
         storage_path: storagePath,
         mime: file.type,
         size_bytes: file.size,
-        extraction_status: storageErr ? "failed" : "running",
+        extraction_status: "running",
       });
 
-      if (!storageErr) {
-        try {
-          const extracted = await extractText(buffer, file.name);
-          if (extracted.text.length > 50) {
-            extractedTexts.push(`--- FILE: ${file.name} ---\n${extracted.text}`);
-          }
-          await supabase
-            .from("tender_files")
-            .update({ extraction_status: "done" })
-            .eq("tender_id", tenderId)
-            .eq("name", file.name);
-        } catch {
-          await supabase
-            .from("tender_files")
-            .update({ extraction_status: "failed" })
-            .eq("tender_id", tenderId)
-            .eq("name", file.name);
+      // Extract text from buffer regardless of storage result
+      try {
+        const extracted = await extractText(buffer, file.name);
+        if (extracted.text.length > 50) {
+          extractedTexts.push(`--- FILE: ${file.name} ---\n${extracted.text}`);
         }
+        await supabase
+          .from("tender_files")
+          .update({ extraction_status: "done" })
+          .eq("tender_id", tenderId)
+          .eq("name", file.name);
+      } catch (extractErr) {
+        console.warn(`Text extraction failed for ${file.name}:`, extractErr);
+        await supabase
+          .from("tender_files")
+          .update({ extraction_status: "failed" })
+          .eq("tender_id", tenderId)
+          .eq("name", file.name);
       }
     }),
   );

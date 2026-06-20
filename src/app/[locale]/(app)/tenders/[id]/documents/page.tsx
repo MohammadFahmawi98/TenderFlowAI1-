@@ -22,6 +22,15 @@ interface SourceFile {
   size_bytes: number;
   extraction_status: string;
   created_at: string;
+  label?: string;
+  comments?: Comment[];
+}
+
+interface Comment {
+  id: string;
+  text: string;
+  author: string;
+  created_at: string;
 }
 
 const REVIEW_COLORS: Record<string, string> = {
@@ -34,16 +43,40 @@ const REVIEW_COLORS: Record<string, string> = {
 };
 
 const EXTRACT_COLORS: Record<string, string> = {
-  done:       "text-success bg-success-bg",
-  running:    "text-warning bg-warning-bg",
-  failed:     "text-danger bg-danger-bg",
+  done:    "text-success bg-success-bg",
+  running: "text-warning bg-warning-bg",
+  failed:  "text-danger bg-danger-bg",
 };
 
-function fileIcon(mime: string) {
+const FILE_LABELS = [
+  { value: "rfp",        label: "RFP" },
+  { value: "boq",        label: "BOQ / Costing Sheet" },
+  { value: "drawings",   label: "Drawings" },
+  { value: "specs",      label: "Specifications" },
+  { value: "contract",   label: "Contract Draft" },
+  { value: "hsedoc",     label: "HSE Requirements" },
+  { value: "other",      label: "Other" },
+];
+
+function guessLabel(name: string): string {
+  const n = name.toLowerCase();
+  if (/boq|bill.of.quant|pricing|costing|rates|cost\s?sheet/.test(n)) return "boq";
+  if (/drawing|dwg|layout|floor.?plan/.test(n)) return "drawings";
+  if (/spec|technical|requirement/.test(n)) return "specs";
+  if (/contract|agreement|tos|terms/.test(n)) return "contract";
+  if (/hse|safety|health|environment/.test(n)) return "hsedoc";
+  if (/rfp|rfq|itb|tender|bid|enquiry/.test(n)) return "rfp";
+  return "other";
+}
+
+function fileIcon(mime: string, label?: string) {
+  if (label === "boq") return "calculate";
+  if (label === "drawings") return "architecture";
   if (mime.includes("pdf"))   return "picture_as_pdf";
   if (mime.includes("word") || mime.includes("docx")) return "description";
   if (mime.includes("sheet") || mime.includes("xlsx") || mime.includes("csv")) return "table_chart";
-  if (mime.includes("zip"))   return "folder_zip";
+  if (mime.includes("presentation") || mime.includes("pptx")) return "slideshow";
+  if (mime.includes("zip")) return "folder_zip";
   return "attach_file";
 }
 
@@ -60,13 +93,18 @@ const PLACEHOLDER_DOCS = [
 
 export default function DocumentsPage() {
   const { id } = useParams<{ id: string }>();
-  const [docs, setDocs]           = useState<Doc[]>([]);
-  const [sourceFiles, setFiles]   = useState<SourceFile[]>([]);
-  const [openId, setOpenId]       = useState<string | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [running, setRunning]     = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef              = useRef<HTMLInputElement>(null);
+  const [docs, setDocs]             = useState<Doc[]>([]);
+  const [sourceFiles, setFiles]     = useState<SourceFile[]>([]);
+  const [openId, setOpenId]         = useState<string | null>(null);
+  const [expandedFileId, setExpanded] = useState<string | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [running, setRunning]       = useState(false);
+  const [uploading, setUploading]   = useState(false);
+  const [retrying, setRetrying]     = useState(false);
+  const [commentDraft, setDraft]    = useState<Record<string, string>>({});
+  const [localLabels, setLabels]    = useState<Record<string, string>>({});
+  const [localComments, setLocalComments] = useState<Record<string, Comment[]>>({});
+  const fileInputRef                = useRef<HTMLInputElement>(null);
 
   async function loadDocs() {
     const [docsRes, filesRes] = await Promise.all([
@@ -74,7 +112,16 @@ export default function DocumentsPage() {
       fetch(`/api/tenders/${id}/files`),
     ]);
     if (docsRes.ok)  setDocs(await docsRes.json());
-    if (filesRes.ok) setFiles(await filesRes.json());
+    if (filesRes.ok) {
+      const files: SourceFile[] = await filesRes.json();
+      setFiles(files);
+      // Auto-assign labels based on filename
+      const auto: Record<string, string> = {};
+      files.forEach((f) => {
+        if (!localLabels[f.id]) auto[f.id] = guessLabel(f.original_name ?? f.name);
+      });
+      setLabels((prev) => ({ ...auto, ...prev }));
+    }
     setLoading(false);
   }
 
@@ -92,6 +139,24 @@ export default function DocumentsPage() {
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function retryFailed() {
+    const failedIds = sourceFiles
+      .filter((f) => f.extraction_status === "failed")
+      .map((f) => f.id);
+    if (!failedIds.length) return;
+    setRetrying(true);
+    try {
+      await fetch(`/api/tenders/${id}/extraction`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileIds: failedIds }),
+      });
+      await loadDocs();
+    } finally {
+      setRetrying(false);
     }
   }
 
@@ -113,9 +178,27 @@ export default function DocumentsPage() {
     }, 3000);
   }
 
+  function addComment(fileId: string) {
+    const text = commentDraft[fileId]?.trim();
+    if (!text) return;
+    const newComment: Comment = {
+      id: Math.random().toString(36).slice(2),
+      text,
+      author: "You",
+      created_at: new Date().toISOString(),
+    };
+    setLocalComments((prev) => ({
+      ...prev,
+      [fileId]: [...(prev[fileId] ?? []), newComment],
+    }));
+    setDraft((prev) => ({ ...prev, [fileId]: "" }));
+  }
+
   const openDoc = docs.find((d) => d.id === openId);
   const openVersion = openDoc?.document_versions?.find((v) => v.id === openDoc.current_version_id)
     ?? openDoc?.document_versions?.[0];
+
+  const failedCount = sourceFiles.filter((f) => f.extraction_status === "failed").length;
 
   if (openId && openDoc) {
     return (
@@ -129,7 +212,6 @@ export default function DocumentsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -144,19 +226,34 @@ export default function DocumentsPage() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-[16px] font-semibold text-text">Source Files</h2>
-            <p className="text-[12px] text-text-secondary mt-0.5">RFP documents, BOQs, drawings — all files uploaded for this bid</p>
+            <p className="text-[12px] text-text-secondary mt-0.5">RFP documents, BOQs, drawings — all files AI agents read to prepare the bid</p>
           </div>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="flex items-center gap-1.5 rounded border border-border px-3 py-2 text-[12px] font-medium text-text hover:bg-surface-dim disabled:opacity-60 transition-colors"
-          >
-            {uploading
-              ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              : <span className="material-symbols-outlined text-[16px] text-primary">upload_file</span>
-            }
-            {uploading ? "Uploading…" : "Add Files"}
-          </button>
+          <div className="flex items-center gap-2">
+            {failedCount > 0 && (
+              <button
+                onClick={retryFailed}
+                disabled={retrying}
+                className="flex items-center gap-1.5 rounded border border-danger px-3 py-2 text-[12px] font-medium text-danger hover:bg-danger-bg disabled:opacity-60 transition-colors"
+              >
+                {retrying
+                  ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-danger border-t-transparent" />
+                  : <span className="material-symbols-outlined text-[16px]">refresh</span>
+                }
+                {retrying ? "Re-processing…" : `Retry ${failedCount} failed`}
+              </button>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-1.5 rounded border border-border px-3 py-2 text-[12px] font-medium text-text hover:bg-surface-dim disabled:opacity-60 transition-colors"
+            >
+              {uploading
+                ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                : <span className="material-symbols-outlined text-[16px] text-primary">upload_file</span>
+              }
+              {uploading ? "Uploading…" : "Add Files"}
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -168,39 +265,136 @@ export default function DocumentsPage() {
           >
             <span className="material-symbols-outlined text-[32px] text-text-muted">upload_file</span>
             <p className="text-[13px] text-text-secondary">Drop files here or click to upload</p>
-            <p className="text-[11px] text-text-muted">PDF · DOCX · XLSX · PPTX · ZIP</p>
+            <p className="text-[11px] text-text-muted">PDF · DOCX · XLSX · PPTX · ZIP · CSV</p>
           </div>
         ) : (
           <div className="rounded-lg border border-border bg-surface overflow-hidden">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b border-border-light bg-surface-dim">
-                  <th className="px-4 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wide text-text-secondary">File</th>
-                  <th className="px-3 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wide text-text-secondary">Size</th>
-                  <th className="px-3 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wide text-text-secondary">Extraction</th>
-                  <th className="px-3 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wide text-text-secondary">Added</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sourceFiles.map((f) => (
-                  <tr key={f.id} className="border-b border-border-light last:border-0 hover:bg-surface-dim transition-colors">
-                    <td className="px-4 py-3 flex items-center gap-2 min-w-0">
-                      <span className="material-symbols-outlined text-[18px] text-primary shrink-0">{fileIcon(f.mime ?? "")}</span>
-                      <span className="truncate font-medium text-text max-w-xs">{f.original_name ?? f.name}</span>
-                    </td>
-                    <td className="px-3 py-3 text-text-secondary whitespace-nowrap">{fmtSize(f.size_bytes)}</td>
-                    <td className="px-3 py-3">
-                      <span className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${EXTRACT_COLORS[f.extraction_status] ?? "text-text-muted bg-surface-dim"}`}>
-                        {f.extraction_status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-text-secondary whitespace-nowrap">
-                      {new Date(f.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {sourceFiles.map((f) => {
+              const label = localLabels[f.id] ?? guessLabel(f.original_name ?? f.name);
+              const comments = localComments[f.id] ?? [];
+              const isExpanded = expandedFileId === f.id;
+
+              return (
+                <div key={f.id} className="border-b border-border-light last:border-0">
+                  {/* Main row */}
+                  <div
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-surface-dim cursor-pointer transition-colors"
+                    onClick={() => setExpanded(isExpanded ? null : f.id)}
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-primary shrink-0">
+                      {fileIcon(f.mime ?? "", label)}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate font-medium text-[13px] text-text">{f.original_name ?? f.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${EXTRACT_COLORS[f.extraction_status] ?? "text-text-muted bg-surface-dim"}`}>
+                          {f.extraction_status}
+                        </span>
+                        <span className="text-[11px] text-text-muted">{fmtSize(f.size_bytes)}</span>
+                        {comments.length > 0 && (
+                          <span className="text-[11px] text-text-muted flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-[12px]">comment</span>
+                            {comments.length}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Label selector */}
+                    <select
+                      value={label}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setLabels((prev) => ({ ...prev, [f.id]: e.target.value }));
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[11px] rounded border border-border bg-surface-dim px-2 py-1 text-text-secondary shrink-0"
+                    >
+                      {FILE_LABELS.map((l) => (
+                        <option key={l.value} value={l.value}>{l.label}</option>
+                      ))}
+                    </select>
+
+                    <span className="material-symbols-outlined text-[16px] text-text-muted shrink-0 transition-transform duration-200"
+                      style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
+                      expand_more
+                    </span>
+                  </div>
+
+                  {/* Expanded panel — comments */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-4 pb-4 pt-1 bg-surface-dim border-t border-border-light">
+                          {/* File info */}
+                          <div className="flex items-center gap-4 mb-3 text-[11px] text-text-muted">
+                            <span>Added {new Date(f.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
+                            <span>{fmtSize(f.size_bytes)}</span>
+                            {f.extraction_status === "failed" && (
+                              <button
+                                onClick={() => {
+                                  setRetrying(true);
+                                  fetch(`/api/tenders/${id}/extraction`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ fileIds: [f.id] }),
+                                  }).then(() => loadDocs()).finally(() => setRetrying(false));
+                                }}
+                                className="text-danger font-medium flex items-center gap-0.5 hover:underline"
+                              >
+                                <span className="material-symbols-outlined text-[13px]">refresh</span>
+                                Retry extraction
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Comments */}
+                          <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wide mb-2">Notes &amp; Comments</p>
+                          {comments.length === 0 ? (
+                            <p className="text-[12px] text-text-muted mb-2">No notes yet — add context about this file.</p>
+                          ) : (
+                            <div className="flex flex-col gap-2 mb-3">
+                              {comments.map((c) => (
+                                <div key={c.id} className="rounded bg-surface px-3 py-2 border border-border-light">
+                                  <p className="text-[12px] text-text">{c.text}</p>
+                                  <p className="text-[10px] text-text-muted mt-1">
+                                    {c.author} · {new Date(c.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex gap-2">
+                            <input
+                              value={commentDraft[f.id] ?? ""}
+                              onChange={(e) => setDraft((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(f.id); } }}
+                              placeholder="Add a note about this file…"
+                              className="flex-1 rounded border border-border bg-surface px-3 py-1.5 text-[12px] text-text placeholder:text-text-muted focus:outline-none focus:border-primary"
+                            />
+                            <button
+                              onClick={() => addComment(f.id)}
+                              disabled={!commentDraft[f.id]?.trim()}
+                              className="rounded bg-primary px-3 py-1.5 text-[12px] font-medium text-white hover:bg-primary-btn disabled:opacity-40 transition-colors"
+                            >
+                              Add
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+
             {/* Add more row */}
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -216,6 +410,20 @@ export default function DocumentsPage() {
           </div>
         )}
       </div>
+
+      {/* BOQ/Costing hint */}
+      {sourceFiles.some((f) => (localLabels[f.id] ?? guessLabel(f.original_name ?? f.name)) === "boq") && (
+        <div className="flex items-start gap-3 rounded-lg border border-[#C8A24A]/40 bg-[#C8A24A]/5 px-4 py-3">
+          <span className="material-symbols-outlined text-[18px] text-[#C8A24A] shrink-0 mt-0.5">calculate</span>
+          <div>
+            <p className="text-[13px] font-medium text-text">BOQ / Costing Sheet detected</p>
+            <p className="text-[12px] text-text-secondary mt-0.5">
+              The AI agents will read your costing sheet to populate the Estimation and Commercial tabs.
+              Make sure the file status shows <strong>DONE</strong> before running agents.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* AI-generated documents section */}
       <div>

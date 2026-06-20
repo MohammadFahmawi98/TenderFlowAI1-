@@ -38,14 +38,18 @@ export async function POST(req: NextRequest) {
     const tenderId = tender.id as string;
 
     // 2. Upload files to Supabase Storage + extract text in parallel
+    // NOTE: text extraction runs from the in-memory buffer and is INDEPENDENT
+    // of storage upload success. Storage failure only affects file download later.
     const extractedTexts: string[] = [];
 
     await Promise.all(
-      files.map(async (file) => {
+      files.map(async (file, idx) => {
         const arrayBuf = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuf);
-        const storagePath = `${tenderId}/${Date.now()}-${file.name}`;
+        // Use index to guarantee unique path even when files upload at the same ms
+        const storagePath = `${tenderId}/${Date.now()}-${idx}-${file.name}`;
 
+        // Fire storage upload (best-effort — we don't gate extraction on this)
         const { error: storageErr } = await supabase.storage
           .from("tender-files")
           .upload(storagePath, buffer, {
@@ -53,8 +57,11 @@ export async function POST(req: NextRequest) {
             upsert: false,
           });
 
-        const extractionStatus = storageErr ? "failed" : "running";
+        if (storageErr) {
+          console.warn(`Storage upload failed for ${file.name}: ${storageErr.message}`);
+        }
 
+        // Insert file record immediately so the UI shows it as "running"
         await supabase.from("tender_files").insert({
           tender_id: tenderId,
           name: file.name,
@@ -62,29 +69,29 @@ export async function POST(req: NextRequest) {
           storage_path: storagePath,
           mime: file.type,
           size_bytes: file.size,
-          extraction_status: extractionStatus,
+          extraction_status: "running",
         });
 
-        if (!storageErr) {
-          try {
-            const extracted = await extractText(buffer, file.name);
-            if (extracted.text.length > 50) {
-              extractedTexts.push(
-                `--- FILE: ${file.name} ---\n${extracted.text}`,
-              );
-            }
-            await supabase
-              .from("tender_files")
-              .update({ extraction_status: "done" })
-              .eq("tender_id", tenderId)
-              .eq("name", file.name);
-          } catch {
-            await supabase
-              .from("tender_files")
-              .update({ extraction_status: "failed" })
-              .eq("tender_id", tenderId)
-              .eq("name", file.name);
+        // Extract text from the buffer regardless of storage result
+        try {
+          const extracted = await extractText(buffer, file.name);
+          if (extracted.text.length > 50) {
+            extractedTexts.push(
+              `--- FILE: ${file.name} ---\n${extracted.text}`,
+            );
           }
+          await supabase
+            .from("tender_files")
+            .update({ extraction_status: "done" })
+            .eq("tender_id", tenderId)
+            .eq("name", file.name);
+        } catch (extractErr) {
+          console.warn(`Text extraction failed for ${file.name}:`, extractErr);
+          await supabase
+            .from("tender_files")
+            .update({ extraction_status: "failed" })
+            .eq("tender_id", tenderId)
+            .eq("name", file.name);
         }
       }),
     );

@@ -16,9 +16,8 @@ export async function extractText(
   const ext = path.extname(filename).toLowerCase();
 
   if (ext === ".pdf") {
-    // Use createRequire so module.parent is set → avoids pdf-parse debug-mode crash
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfParse: any = _require("pdf-parse");
+    const pdfParse: (buf: Buffer) => Promise<{ text: string }> =
+      _require("pdf-parse");
     const data = await pdfParse(buffer);
     return { name: filename, text: data.text, mimeType: "application/pdf" };
   }
@@ -31,6 +30,24 @@ export async function extractText(
       text: result.value,
       mimeType:
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    };
+  }
+
+  // Legacy .doc — mammoth sometimes handles it, fallback to raw text if it fails
+  if (ext === ".doc") {
+    try {
+      const mammoth = await import("mammoth");
+      const result = await mammoth.extractRawText({ buffer });
+      if (result.value.length > 50) {
+        return { name: filename, text: result.value, mimeType: "application/msword" };
+      }
+    } catch {
+      // fall through to raw extraction below
+    }
+    return {
+      name: filename,
+      text: buffer.toString("latin1").replace(/[^\x20-\x7E\n\r\t-￿]/g, " "),
+      mimeType: "application/msword",
     };
   }
 
@@ -57,7 +74,40 @@ export async function extractText(
     };
   }
 
-  // Fallback: treat as UTF-8 text
+  // .pptx — extract text from slide XML inside the ZIP
+  if (ext === ".pptx") {
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = await JSZip.loadAsync(buffer);
+      const slideTexts: string[] = [];
+
+      const slideEntries = Object.entries(zip.files)
+        .filter(([name]) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
+        .sort(([a], [b]) => a.localeCompare(b));
+
+      for (const [, file] of slideEntries) {
+        const xml = await file.async("text");
+        // Extract text from <a:t> tags
+        const matches = xml.match(/<a:t[^>]*>([^<]*)<\/a:t>/g) ?? [];
+        const text = matches
+          .map((m) => m.replace(/<[^>]+>/g, ""))
+          .join(" ")
+          .trim();
+        if (text) slideTexts.push(text);
+      }
+
+      return {
+        name: filename,
+        text: slideTexts.join("\n"),
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      };
+    } catch {
+      // fall through to raw extraction
+    }
+  }
+
+  // Generic fallback: return raw text (works for plain-text files with unknown extensions)
   return {
     name: filename,
     text: buffer.toString("utf-8").slice(0, 50_000),
