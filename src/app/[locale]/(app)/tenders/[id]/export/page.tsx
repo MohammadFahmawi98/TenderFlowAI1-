@@ -3,45 +3,30 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 
-interface AgentRun {
-  agent_type: string;
-  status: string;
-  output_content?: string;
-}
+interface AgentRun { agent_type: string; status: string; output_content?: string; }
+interface Tender   { name?: string; readiness_score?: number; win_probability?: number; client?: string; submission_deadline?: string; }
 
-interface Tender {
-  name?: string;
-  readiness_score?: number;
-  win_probability?: number;
-  client?: string;
-  submission_deadline?: string;
-}
-
-const AGENT_ORDER = [
-  { key: "qualification",    label: "Qualification Assessment",  icon: "verified" },
-  { key: "compliance",       label: "Compliance Matrix",         icon: "fact_check" },
-  { key: "technical",        label: "Technical Proposal",        icon: "engineering" },
-  { key: "commercial",       label: "Commercial / BOQ",          icon: "receipt_long" },
-  { key: "manpower",         label: "Manpower Plan",             icon: "groups" },
-  { key: "ppm",              label: "Assets & PPM Schedule",     icon: "build_circle" },
-  { key: "risk",             label: "Risk Register",             icon: "warning_amber" },
-  { key: "hse",              label: "HSE Plan",                  icon: "health_and_safety" },
-  { key: "sla",              label: "SLA & KPI Framework",       icon: "speed" },
-  { key: "presentation",     label: "Executive Presentation",    icon: "slideshow" },
-  { key: "executive_review", label: "Executive Review Report",   icon: "summarize" },
-];
-
-const AUDIT_LOG = [
-  { version: "v2.1", date: "Pending export", by: "System", status: "pending" },
+const EXPORT_SECTIONS = [
+  { key: "commercial",    label: "Commercial Proposal",    desc: "Cover page · BOQ · Staff rates · Consumables · Exclusions", icon: "receipt_long",      primary: true },
+  { key: "technical",     label: "Technical Proposal",     desc: "Methodology · Systems · Implementation plan",               icon: "engineering",       primary: false },
+  { key: "qualification", label: "Qualification Assessment", desc: "Company profile · Certifications · Track record",        icon: "verified",          primary: false },
+  { key: "compliance",    label: "Compliance Matrix",      desc: "Requirement-by-requirement compliance table",               icon: "fact_check",        primary: false },
+  { key: "manpower",      label: "Manpower Plan",          desc: "Organisation chart · Roles · Deployment schedule",         icon: "groups",            primary: false },
+  { key: "ppm",           label: "PPM Schedule",           desc: "Planned preventive maintenance programme",                  icon: "build_circle",      primary: false },
+  { key: "risk",          label: "Risk Register",          desc: "Risk matrix · Mitigation plans · Contingencies",            icon: "warning_amber",     primary: false },
+  { key: "hse",           label: "HSE Plan",               desc: "Health, Safety & Environment management plan",              icon: "health_and_safety", primary: false },
+  { key: "sla",           label: "SLA & KPI Framework",   desc: "Service levels · KPI definitions · Penalty regime",         icon: "speed",             primary: false },
+  { key: "presentation",  label: "Executive Presentation", desc: "C-suite summary for client meetings",                      icon: "slideshow",         primary: false },
+  { key: "all",           label: "Full Bid Package",       desc: "All sections combined in a single DOCX",                   icon: "folder_zip",        primary: false },
 ];
 
 export default function ExportPage() {
   const { id } = useParams<{ id: string }>();
-  const [tender, setTender] = useState<Tender | null>(null);
-  const [agents, setAgents] = useState<AgentRun[]>([]);
-  const [exporting, setExporting] = useState(false);
-  const [exported, setExported] = useState(false);
-  const [error, setError] = useState("");
+  const [tender, setTender]     = useState<Tender | null>(null);
+  const [agents, setAgents]     = useState<AgentRun[]>([]);
+  const [downloading, setDl]    = useState<string | null>(null);
+  const [exported, setExported] = useState<string[]>([]);
+  const [error, setError]       = useState<Record<string, string>>({});
 
   useEffect(() => {
     Promise.all([
@@ -53,215 +38,192 @@ export default function ExportPage() {
     }).catch(console.error);
   }, [id]);
 
-  async function exportPackage() {
-    setExporting(true);
-    setError("");
+  const agentMap = Object.fromEntries(agents.map((a) => [a.agent_type, a]));
+  const isReady  = (key: string) => key === "all" || key === "commercial" || agentMap[key]?.status === "completed";
+
+  async function download(type: string) {
+    setDl(type);
+    setError((prev) => ({ ...prev, [type]: "" }));
     try {
-      const res = await fetch(`/api/tenders/${id}/export`, { method: "POST" });
-      if (!res.ok) throw new Error("Export failed");
+      const res = await fetch(`/api/tenders/${id}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Export failed");
+      }
       const blob = await res.blob();
+      const section = EXPORT_SECTIONS.find((s) => s.key === type);
+      const safeName = (tender?.name ?? "tender").replace(/[^a-z0-9]/gi, "_");
+      const safeLabel = (section?.label ?? type).replace(/[^a-z0-9]/gi, "_");
       const a = Object.assign(document.createElement("a"), {
         href: URL.createObjectURL(blob),
-        download: `${(tender?.name ?? "submission").replace(/[^a-z0-9]/gi, "_")}_package.docx`,
+        download: `EIH_${safeName}_${safeLabel}.docx`,
       });
       a.click();
-      setExported(true);
+      setExported((prev) => [...new Set([...prev, type])]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Export failed. Please try again.");
+      setError((prev) => ({ ...prev, [type]: e instanceof Error ? e.message : "Export failed" }));
     } finally {
-      setExporting(false);
+      setDl(null);
     }
   }
 
-  const agentMap = Object.fromEntries(agents.map((a) => [a.agent_type, a]));
-  const completed = AGENT_ORDER.filter((item) => agentMap[item.key]?.status === "completed");
-  const hasContent = (key: string) => !!agentMap[key]?.output_content;
+  const completedCount = agents.filter((a) => a.status === "completed").length;
+  const winProb  = tender?.win_probability  ?? 0;
   const readiness = tender?.readiness_score ?? 0;
-  const winProb = tender?.win_probability ?? 0;
-  const isReady = completed.length >= 6;
-
-  const checklist = AGENT_ORDER.map((item) => {
-    const run = agentMap[item.key];
-    const done = run?.status === "completed" && hasContent(item.key);
-    const running = run?.status === "running";
-    return { ...item, done, running };
-  });
-
-  const doneCount = checklist.filter((c) => c.done).length;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
 
-      {/* Header + Readiness */}
-      <div className="grid gap-4 lg:grid-cols-3">
-
-        {/* Readiness Checklist */}
-        <div className="lg:col-span-2 rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between border-b border-border-light px-5 py-3.5">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px] text-text-muted">checklist</span>
-              <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">Readiness Checklist</p>
+      {/* Readiness bar */}
+      <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
+        <div className="grid grid-cols-3 divide-x divide-border-light">
+          {[
+            { label: "Sections Ready",     value: `${completedCount} / 11`,     sub: "AI agents completed",       good: completedCount >= 8 },
+            { label: "Readiness Score",    value: readiness ? `${readiness}%` : "—", sub: "Overall bid quality",  good: readiness >= 70 },
+            { label: "Win Probability",    value: winProb ? `${winProb}%` : "—",    sub: "AI strategic estimate", good: winProb >= 50 },
+          ].map((kpi) => (
+            <div key={kpi.label} className="flex flex-col items-center py-5 gap-1">
+              <p className={`text-[24px] font-bold ${kpi.good ? "text-success" : "text-warning"}`}>{kpi.value}</p>
+              <p className="text-[12px] font-semibold text-text">{kpi.label}</p>
+              <p className="text-[11px] text-text-muted">{kpi.sub}</p>
             </div>
-            <span className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${isReady ? "bg-success/10 text-success border border-success/25" : "bg-warning/10 text-warning border border-warning/25"}`}>
-              {doneCount}/{AGENT_ORDER.length} Ready
-            </span>
-          </div>
-          <div className="divide-y divide-border-light">
-            {checklist.map((item) => (
-              <div key={item.key} className="flex items-center gap-3 px-5 py-2.5">
-                <span className={`material-symbols-outlined text-[18px] shrink-0 ${item.done ? "text-success" : item.running ? "text-primary animate-pulse" : "text-text-muted"}`}>
-                  {item.done ? "check_circle" : item.running ? "pending" : "radio_button_unchecked"}
-                </span>
-                <span className={`material-symbols-outlined text-[15px] shrink-0 ${item.done ? "text-text-secondary" : "text-text-muted"}`}>{item.icon}</span>
-                <span className={`flex-1 text-[13px] ${item.done ? "text-text font-medium" : "text-text-secondary"}`}>{item.label}</span>
-                {item.done && (
-                  <span className="text-[10.5px] text-success font-medium">Verified by AI</span>
-                )}
-                {item.running && (
-                  <span className="text-[10.5px] text-primary font-medium">Running…</span>
-                )}
-                {!item.done && !item.running && (
-                  <span className="text-[10.5px] text-text-muted">Pending</span>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-border-light px-5 py-3">
-            <div className="flex items-center justify-between text-[12px] text-text-secondary mb-1.5">
-              <span>Overall completion</span>
-              <span className="font-semibold text-text">{Math.round((doneCount / AGENT_ORDER.length) * 100)}%</span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-surface-mid">
-              <div className={`h-full rounded-full transition-all duration-700 ${isReady ? "bg-success" : "bg-primary"}`}
-                style={{ width: `${(doneCount / AGENT_ORDER.length) * 100}%` }} />
-            </div>
-          </div>
+          ))}
         </div>
-
-        {/* Export Panel */}
-        <div className="flex flex-col gap-4">
-
-          {/* AI Forecast */}
-          {winProb > 0 && (
-            <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="material-symbols-outlined text-[16px] text-primary">auto_awesome</span>
-                <p className="text-[11.5px] font-semibold text-text">AI Strategic Forecast</p>
-              </div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[12px] text-text-secondary">Win Probability:</span>
-                <span className={`text-[16px] font-bold ${winProb >= 65 ? "text-success" : winProb >= 40 ? "text-warning" : "text-danger"}`}>{winProb}%</span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-mid mb-2">
-                <div className={`h-full rounded-full ${winProb >= 65 ? "bg-success" : winProb >= 40 ? "bg-warning" : "bg-danger"}`} style={{ width: `${winProb}%` }} />
-              </div>
-              <p className="text-[11.5px] text-text-secondary leading-relaxed">
-                {winProb >= 65
-                  ? "Your proposal ranks in the top percentile. Strong competitive position."
-                  : winProb >= 40
-                  ? "Competitive proposal. Address identified gaps to improve probability."
-                  : "Consider strengthening key sections before final submission."}
-              </p>
-            </div>
-          )}
-
-          {/* Ready for Export card */}
-          <div className={`rounded-xl border shadow-sm p-5 flex flex-col items-center gap-3 text-center ${isReady ? "border-success/30 bg-success/5" : "border-border bg-surface"}`}>
-            <span className={`material-symbols-outlined text-[36px] ${isReady ? "text-success" : "text-text-muted"}`}>
-              {isReady ? "task_alt" : "pending"}
-            </span>
-            <p className="text-[13px] font-semibold text-text">
-              {isReady ? "Ready for Export" : "Not Yet Ready"}
-            </p>
-            <p className="text-[11.5px] text-text-secondary leading-relaxed">
-              {isReady
-                ? "All mandatory sections verified. Generate your secure DOCX submission package."
-                : `Complete ${AGENT_ORDER.length - doneCount} more section${AGENT_ORDER.length - doneCount > 1 ? "s" : ""} before export.`}
-            </p>
-
-            <button onClick={exportPackage} disabled={exporting || !isReady}
-              className="w-full rounded-lg px-4 py-3 text-[13px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-              style={{ background: isReady ? "linear-gradient(135deg,#8B3520,#C8A24A)" : undefined, backgroundColor: isReady ? undefined : "var(--color-surface-mid)" }}>
-              {exporting ? (
-                <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> Generating…</>
-              ) : (
-                <><span className="material-symbols-outlined text-[18px]">download</span> Generate &amp; Export DOCX</>
-              )}
-            </button>
-
-            {exported && (
-              <p className="text-[11.5px] text-success font-medium">✓ Package exported successfully</p>
-            )}
-            {error && (
-              <p className="text-[11.5px] text-danger">{error}</p>
-            )}
+        <div className="px-5 pb-4">
+          <div className="flex items-center justify-between text-[11px] text-text-secondary mb-1.5">
+            <span>AI completion</span>
+            <span className="font-semibold text-text">{Math.round((completedCount / 11) * 100)}%</span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-mid">
+            <div className="h-full rounded-full bg-primary transition-all duration-700"
+              style={{ width: `${(completedCount / 11) * 100}%` }} />
           </div>
         </div>
       </div>
 
-      {/* Generated Sections Preview */}
-      {doneCount > 0 && (
-        <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between border-b border-border-light px-5 py-3.5">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px] text-text-muted">folder</span>
-              <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">Generated Sections</p>
-              <span className="rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-semibold text-primary">{doneCount} files</span>
-            </div>
-          </div>
-          <div className="divide-y divide-border-light">
-            {checklist.filter((c) => c.done).map((item) => {
-              const bytes = Math.round((agentMap[item.key]?.output_content?.length ?? 0) * 1.5);
-              const kb = bytes > 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${bytes} B`;
-              return (
-                <div key={item.key} className="flex items-center gap-3 px-5 py-2.5">
-                  <span className="material-symbols-outlined text-[18px] text-primary">{item.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12.5px] font-medium text-text">{item.label}</p>
-                    <p className="text-[11px] text-text-muted">Microsoft Word · {kb}</p>
+      {/* Export grid */}
+      <div>
+        <p className="text-[11px] uppercase font-semibold tracking-wide text-text-muted mb-3">Export Documents</p>
+        <div className="grid gap-3 lg:grid-cols-2">
+          {EXPORT_SECTIONS.map((section) => {
+            const ready   = isReady(section.key);
+            const loading = downloading === section.key;
+            const done    = exported.includes(section.key);
+            const err     = error[section.key];
+
+            return (
+              <div
+                key={section.key}
+                className={`flex items-start gap-4 rounded-xl border bg-surface p-4 shadow-sm transition-colors ${
+                  section.primary
+                    ? "border-[#8B3520]/30 bg-gradient-to-br from-[#8B3520]/5 to-surface"
+                    : "border-border"
+                }`}
+              >
+                {/* Icon */}
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                  section.primary ? "bg-[#8B3520]" : "bg-surface-dim"
+                }`}>
+                  <span className={`material-symbols-outlined text-[20px] ${section.primary ? "text-white" : "text-text-secondary"}`}>
+                    {section.icon}
+                  </span>
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className={`text-[13px] font-semibold text-text ${section.primary ? "text-[#8B3520]" : ""}`}>
+                      {section.label}
+                    </p>
+                    {section.primary && (
+                      <span className="rounded-full bg-[#8B3520]/10 border border-[#8B3520]/20 px-2 py-0.5 text-[9px] font-bold uppercase text-[#8B3520]">
+                        EIH Format
+                      </span>
+                    )}
                   </div>
-                  <span className="text-[10px] text-success font-semibold bg-success/10 border border-success/25 rounded px-2 py-0.5">Ready</span>
+                  <p className="text-[11.5px] text-text-secondary">{section.desc}</p>
+                  {err && <p className="text-[11px] text-danger mt-1">{err}</p>}
+                  {done && !loading && (
+                    <p className="text-[11px] text-success font-medium mt-1 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                      Downloaded
+                    </p>
+                  )}
+                </div>
+
+                {/* Button */}
+                <button
+                  onClick={() => download(section.key)}
+                  disabled={!ready || loading}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[12px] font-semibold transition-all disabled:opacity-50 ${
+                    section.primary
+                      ? "bg-[#8B3520] text-white hover:bg-[#7a2d1a]"
+                      : ready
+                      ? "bg-surface-dim text-text hover:bg-border border border-border"
+                      : "bg-surface-dim text-text-muted border border-border cursor-not-allowed"
+                  }`}
+                >
+                  {loading ? (
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  ) : (
+                    <span className="material-symbols-outlined text-[16px]">
+                      {!ready ? "lock" : done ? "download_done" : "download"}
+                    </span>
+                  )}
+                  {loading ? "Generating…" : !ready ? "Not ready" : "Download"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tip */}
+      <div className="flex items-start gap-3 rounded-xl border border-[#C8A24A]/30 bg-[#C8A24A]/5 px-4 py-3">
+        <span className="material-symbols-outlined text-[18px] text-[#C8A24A] mt-0.5 shrink-0">lightbulb</span>
+        <div>
+          <p className="text-[12.5px] font-semibold text-text">Commercial Proposal requires a saved BOQ</p>
+          <p className="text-[12px] text-text-secondary mt-0.5">
+            Go to the <strong>Estimation</strong> tab → fill in the BOQ monthly rates and staff → Save → then come back here to export. The Commercial Proposal will include your exact figures formatted exactly like EIH&apos;s standard proposal.
+          </p>
+        </div>
+      </div>
+
+      {/* Audit log */}
+      <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-border-light px-5 py-3.5">
+          <span className="material-symbols-outlined text-[16px] text-text-muted">history</span>
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">Export History (this session)</p>
+        </div>
+        {exported.length === 0 ? (
+          <p className="px-5 py-6 text-[12px] text-text-muted text-center">No exports yet — click Download on any document above.</p>
+        ) : (
+          <div className="divide-y divide-border-light">
+            {exported.map((key) => {
+              const s = EXPORT_SECTIONS.find((x) => x.key === key);
+              return (
+                <div key={key} className="flex items-center gap-3 px-5 py-3">
+                  <span className="material-symbols-outlined text-[16px] text-success">check_circle</span>
+                  <div className="flex-1">
+                    <p className="text-[12.5px] font-medium text-text">{s?.label ?? key}</p>
+                    <p className="text-[11px] text-text-muted">{new Date().toLocaleTimeString("en-GB")}</p>
+                  </div>
+                  <button
+                    onClick={() => download(key)}
+                    disabled={downloading === key}
+                    className="text-[11.5px] text-primary hover:underline"
+                  >
+                    Re-download
+                  </button>
                 </div>
               );
             })}
           </div>
-        </div>
-      )}
-
-      {/* Export Audit History */}
-      <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-border-light px-5 py-3.5">
-          <span className="material-symbols-outlined text-[16px] text-text-muted">history</span>
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">Export Audit History</p>
-        </div>
-        <table className="w-full text-[12.5px]">
-          <thead>
-            <tr className="border-b border-border-light bg-surface-dim">
-              {["Version", "Date & Time", "Generated By", "Status", "Action"].map((h) => (
-                <th key={h} className="px-4 py-2.5 text-start text-[10.5px] font-semibold uppercase tracking-wide text-text-secondary">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {exported ? (
-              <tr className="border-b border-border-light">
-                <td className="px-4 py-3 font-mono text-[11px]">v1.0</td>
-                <td className="px-4 py-3 text-text-secondary">{new Date().toLocaleString("en-GB")}</td>
-                <td className="px-4 py-3 text-text-secondary">System (Auto)</td>
-                <td className="px-4 py-3"><span className="rounded bg-success/10 border border-success/25 px-2 py-0.5 text-[10px] font-bold text-success uppercase">Success</span></td>
-                <td className="px-4 py-3">
-                  <button onClick={exportPackage} className="text-[11.5px] text-primary hover:underline">Re-download</button>
-                </td>
-              </tr>
-            ) : (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-[12px] text-text-muted">
-                  No exports yet — generate your first package above.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        )}
       </div>
     </div>
   );
