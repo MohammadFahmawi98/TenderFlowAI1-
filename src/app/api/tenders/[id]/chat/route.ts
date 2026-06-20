@@ -33,20 +33,46 @@ export async function POST(
     .eq("id", tenderId)
     .single();
 
-  // Build context from extraction + any completed agent documents
-  const { data: docs } = await supabase
-    .from("documents")
-    .select("title, document_versions(content_html)")
-    .eq("tender_id", tenderId);
+  // Build context from agent_runs.output_content (primary) + document_versions (secondary)
+  const [{ data: agentRuns }, { data: docs }] = await Promise.all([
+    supabase
+      .from("agent_runs")
+      .select("agent_type, output_content")
+      .eq("tender_id", tenderId)
+      .eq("status", "completed"),
+    supabase
+      .from("documents")
+      .select("title, document_versions(content_html)")
+      .eq("tender_id", tenderId),
+  ]);
 
-  const docSummaries = (docs ?? [])
-    .map((d: { title: string; document_versions?: Array<{ content_html?: string }> }) => {
-      const html = d.document_versions?.[0]?.content_html ?? "";
-      const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 500);
-      return text ? `[${d.title}]: ${text}` : null;
+  const AGENT_TITLES: Record<string, string> = {
+    intelligence: "Tender Intelligence", qualification: "Qualification Assessment",
+    compliance: "Compliance Matrix", technical: "Technical Proposal",
+    commercial: "Commercial Proposal", manpower: "Manpower Plan",
+    ppm: "PPM Schedule", risk: "Risk Register", hse: "HSE Plan",
+    sla: "SLA & KPI Framework", presentation: "Presentation", executive_review: "Executive Review",
+  };
+
+  const agentContext = (agentRuns ?? [])
+    .filter((r: { agent_type: string; output_content?: string }) => r.output_content)
+    .map((r: { agent_type: string; output_content?: string }) => {
+      const title = AGENT_TITLES[r.agent_type] ?? r.agent_type;
+      const text = (r.output_content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 800);
+      return `[${title}]:\n${text}`;
     })
-    .filter(Boolean)
     .join("\n\n");
+
+  const docSummaries = agentContext
+    ? ""
+    : (docs ?? [])
+        .map((d: { title: string; document_versions?: Array<{ content_html?: string }> }) => {
+          const html = d.document_versions?.[0]?.content_html ?? "";
+          const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 500);
+          return text ? `[${d.title}]: ${text}` : null;
+        })
+        .filter(Boolean)
+        .join("\n\n");
 
   const knowledgeBase = [
     tender ? `Tender: ${tender.name}\nClient: ${tender.client ?? "Unknown"}\nDeadline: ${tender.submission_deadline ?? "Not specified"}` : "",
@@ -61,6 +87,7 @@ export async function POST(
       ? `Evaluation Criteria:\n${(extraction.evaluation_criteria as string[]).map((r: string) => `- ${r}`).join("\n")}`
       : "",
     tender?.executive_summary ? `Executive Summary: ${tender.executive_summary}` : "",
+    agentContext ? `AI-Generated Bid Sections:\n${agentContext}` : "",
     docSummaries ? `Generated Documents:\n${docSummaries}` : "",
   ].filter(Boolean).join("\n\n");
 

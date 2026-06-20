@@ -29,13 +29,29 @@ const TABS = [
 ] as const;
 
 const STATUS_STYLES: Record<string, { label: string; cls: string }> = {
+  draft:       { label: "Draft",       cls: "text-text-muted bg-surface-dim" },
   analyzing:   { label: "Analyzing",   cls: "text-primary bg-primary-light" },
   in_progress: { label: "In Proposal", cls: "text-primary bg-primary-light" },
   in_review:   { label: "Review Req.", cls: "text-warning bg-warning-bg" },
   ready:       { label: "Ready",       cls: "text-success bg-success-bg" },
   submitted:   { label: "Submitted",   cls: "text-success bg-success-bg" },
+  won:         { label: "Won",         cls: "text-success bg-success-bg" },
+  lost:        { label: "Lost",        cls: "text-danger bg-danger-bg" },
+  no_bid:      { label: "No Bid",      cls: "text-text-muted bg-surface-dim" },
   archived:    { label: "Archived",    cls: "text-text-muted bg-surface-dim" },
 };
+
+const STATUS_OPTIONS = [
+  { value: "draft",       label: "Draft" },
+  { value: "in_progress", label: "In Proposal" },
+  { value: "in_review",   label: "Review Required" },
+  { value: "ready",       label: "Ready to Submit" },
+  { value: "submitted",   label: "Submitted" },
+  { value: "won",         label: "Won" },
+  { value: "lost",        label: "Lost" },
+  { value: "no_bid",      label: "No Bid" },
+  { value: "archived",    label: "Archived" },
+];
 
 export function WorkspaceShell({
   tender,
@@ -51,6 +67,9 @@ export function WorkspaceShell({
   const [showMenu, setShowMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState(tender?.status ?? "");
+  const [savingStatus, setSavingStatus] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,6 +81,19 @@ export function WorkspaceShell({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  async function updateStatus(status: string) {
+    if (!tenderId) return;
+    setSavingStatus(true);
+    await fetch(`/api/tenders/${tenderId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    setCurrentStatus(status);
+    setSavingStatus(false);
+    setShowStatusModal(false);
+  }
 
   async function deleteTender() {
     if (!tenderId) return;
@@ -99,8 +131,9 @@ export function WorkspaceShell({
     }
   }
 
-  const statusStyle = tender?.status
-    ? STATUS_STYLES[tender.status] ?? { label: tender.status, cls: "text-text-muted bg-surface-dim" }
+  const activeStatus = currentStatus || tender?.status || "";
+  const statusStyle = activeStatus
+    ? STATUS_STYLES[activeStatus] ?? { label: activeStatus.replace(/_/g, " "), cls: "text-text-muted bg-surface-dim" }
     : null;
 
   return (
@@ -178,10 +211,18 @@ export function WorkspaceShell({
                 <span className="material-symbols-outlined text-[18px]">more_vert</span>
               </button>
               {showMenu && (
-                <div className="absolute end-0 top-full z-50 mt-1 w-44 rounded-lg border border-border bg-surface shadow-lg">
+                <div className="absolute end-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-surface shadow-lg overflow-hidden">
+                  <button
+                    onClick={() => { setShowMenu(false); setShowStatusModal(true); }}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-[13px] text-text hover:bg-surface-dim transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[15px] text-text-muted">swap_horiz</span>
+                    Change Status
+                  </button>
+                  <div className="border-t border-border-light" />
                   <button
                     onClick={() => { setShowMenu(false); setConfirmDelete(true); }}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-[13px] text-danger hover:bg-danger-bg transition-colors rounded-lg"
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-[13px] text-danger hover:bg-danger-bg transition-colors"
                   >
                     <span className="material-symbols-outlined text-[15px]">delete</span>
                     Delete Tender
@@ -232,6 +273,52 @@ export function WorkspaceShell({
           {children}
         </div>
       </div>
+
+      {/* Change Status modal */}
+      {showStatusModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[15px] font-semibold text-text">Change Tender Status</h3>
+              <button onClick={() => setShowStatusModal(false)} className="text-text-muted hover:text-text">
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {STATUS_OPTIONS.map((opt) => {
+                const s = STATUS_STYLES[opt.value];
+                const isSelected = opt.value === activeStatus;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => updateStatus(opt.value)}
+                    disabled={savingStatus}
+                    className={[
+                      "flex items-center justify-between rounded-lg border px-3.5 py-2.5 text-[13px] transition-colors text-start",
+                      isSelected
+                        ? "border-primary bg-primary-light font-semibold"
+                        : "border-border hover:bg-surface-dim",
+                    ].join(" ")}
+                  >
+                    <span className={isSelected ? "text-primary" : "text-text"}>{opt.label}</span>
+                    <div className="flex items-center gap-2">
+                      {s && (
+                        <span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${s.cls}`}>
+                          {s.label}
+                        </span>
+                      )}
+                      {isSelected && <span className="material-symbols-outlined text-[14px] text-primary">check</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {savingStatus && (
+              <p className="mt-3 text-center text-[12px] text-text-muted">Saving…</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation modal */}
       {confirmDelete && (

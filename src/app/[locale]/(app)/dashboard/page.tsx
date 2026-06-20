@@ -29,7 +29,7 @@ function daysUntil(dateStr: string) {
 }
 
 function fmt(v: number) {
-  return v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `$${(v / 1_000).toFixed(0)}K` : `$${v}`;
+  return v >= 1_000_000 ? `AED ${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `AED ${(v / 1_000).toFixed(0)}K` : `AED ${v}`;
 }
 
 export default function DashboardPage() {
