@@ -2,6 +2,7 @@
 
 import { usePathname, Link, useRouter } from "@/i18n/navigation";
 import { useState, useRef, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 interface Tender {
   id: string;
@@ -13,6 +14,17 @@ interface Tender {
   win_probability?: number;
   status: string;
 }
+
+interface PresenceUser {
+  user_id: string;
+  initials: string;
+  color: string;
+  tab: string;
+}
+
+const PRESENCE_COLORS = ["#8B3520","#C8A24A","#2563EB","#16A34A","#9333EA","#DC2626","#0891B2"];
+function colorFor(id: string) { return PRESENCE_COLORS[Math.abs(id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % PRESENCE_COLORS.length]; }
+function initials(email: string) { return email.split("@")[0].slice(0, 2).toUpperCase(); }
 
 const TABS = [
   { key: "overview",      label: "Overview",     path: "" },
@@ -70,7 +82,9 @@ export function WorkspaceShell({
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [currentStatus, setCurrentStatus] = useState(tender?.status ?? "");
   const [savingStatus, setSavingStatus] = useState(false);
+  const [presence, setPresence] = useState<PresenceUser[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
+  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -81,6 +95,49 @@ export function WorkspaceShell({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  // Supabase Realtime presence — shows who's viewing this tender workspace
+  useEffect(() => {
+    if (!tender?.id) return;
+    const supabase = createClient();
+    let myId = "";
+
+    supabase.auth.getUser().then(({ data }) => {
+      const email = data.user?.email ?? `guest-${Math.random().toString(36).slice(2, 7)}`;
+      myId = data.user?.id ?? email;
+      const tab = pathname.split("/").pop() ?? "overview";
+
+      const channel = supabase.channel(`workspace:${tender.id}`, {
+        config: { presence: { key: myId } },
+      });
+      channelRef.current = channel;
+
+      channel
+        .on("presence", { event: "sync" }, () => {
+          const state = channel.presenceState<{ initials: string; color: string; tab: string }>();
+          const users: PresenceUser[] = Object.entries(state)
+            .filter(([uid]) => uid !== myId)
+            .map(([uid, metas]) => {
+              const m = (metas as Array<{ initials: string; color: string; tab: string }>)[0];
+              return { user_id: uid, initials: m.initials, color: m.color, tab: m.tab };
+            });
+          setPresence(users);
+        })
+        .subscribe(async (status) => {
+          if (status === "SUBSCRIBED") {
+            await channel.track({ initials: initials(email), color: colorFor(myId), tab });
+          }
+        });
+    });
+
+    return () => {
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tender?.id]);
 
   async function updateStatus(status: string) {
     if (!tenderId) return;
@@ -183,6 +240,26 @@ export function WorkspaceShell({
 
           {/* Action buttons */}
           <div className="flex shrink-0 items-center gap-2">
+            {/* Team presence avatars */}
+            {presence.length > 0 && (
+              <div className="flex items-center -space-x-2 mr-1" title={`${presence.length} team member${presence.length > 1 ? "s" : ""} viewing`}>
+                {presence.slice(0, 4).map((u) => (
+                  <div
+                    key={u.user_id}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface text-[10px] font-bold text-white ring-1 ring-white/20"
+                    style={{ background: u.color }}
+                    title={`Viewing: ${u.tab}`}
+                  >
+                    {u.initials}
+                  </div>
+                ))}
+                {presence.length > 4 && (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-surface-dim text-[10px] font-bold text-text-secondary">
+                    +{presence.length - 4}
+                  </div>
+                )}
+              </div>
+            )}
             <Link
               href={`/tenders/${tenderId}/export`}
               className="rounded px-3.5 py-2 text-[12px] font-semibold text-white transition-colors"

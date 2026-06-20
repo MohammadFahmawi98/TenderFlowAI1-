@@ -99,7 +99,8 @@ function TextCell({ value, onChange, placeholder }: { value: string; onChange: (
 export default function EstimationPage() {
   const { id } = useParams<{ id: string }>();
   const [boq, setBoq] = useState<BOQData | null>(null);
-  const [tab, setTab] = useState<"boq" | "staff" | "summary" | "settings">("boq");
+  const [tab, setTab] = useState<"boq" | "staff" | "summary" | "cost" | "settings">("boq");
+  const [labMult, setLabMult] = useState({ accommodation: 15, visa_insurance: 10, transport: 8, overhead: 12, profit_target: 20 });
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -209,6 +210,7 @@ export default function EstimationPage() {
     { key: "boq", label: "BOQ" },
     { key: "staff", label: "Staff Rates" },
     { key: "summary", label: "Summary" },
+    { key: "cost", label: "Cost Analysis" },
     { key: "settings", label: "Settings" },
   ] as const;
 
@@ -599,6 +601,153 @@ export default function EstimationPage() {
           </div>
         </div>
       )}
+
+      {/* ══ COST ANALYSIS TAB ════════════════════════════════ */}
+      {tab === "cost" && (() => {
+        // Internal cost = basic salary × (1 + all add-on %)
+        const totalAddOnPct = labMult.accommodation + labMult.visa_insurance + labMult.transport + labMult.overhead;
+        const multiplier = 1 + totalAddOnPct / 100;
+        const internalStaffCost = boq.staff.reduce((s, r) => s + r.monthly_rate * r.count * 12 * multiplier, 0);
+        const internalBoqCost = grandTotal * 0.85; // assume 85% of BOQ is actual cost before margin
+        const totalInternalCost = internalStaffCost + internalBoqCost;
+        const bidPrice = grandPlusVat;
+        const grossProfit = bidPrice - totalInternalCost;
+        const marginPct = bidPrice > 0 ? (grossProfit / bidPrice) * 100 : 0;
+        const targetProfit = totalInternalCost * (labMult.profit_target / 100);
+
+        const multFields: Array<{ key: keyof typeof labMult; label: string; desc: string }> = [
+          { key: "accommodation", label: "Accommodation", desc: "Staff housing cost add-on %" },
+          { key: "visa_insurance", label: "Visa & Insurance", desc: "Visa, health, life insurance %" },
+          { key: "transport", label: "Transportation", desc: "Company transport allowance %" },
+          { key: "overhead", label: "Overhead & Admin", desc: "Office, management, PRO %" },
+          { key: "profit_target", label: "Target Profit Margin", desc: "Desired profit margin on cost %" },
+        ];
+
+        return (
+          <div className="flex flex-col gap-5">
+            {/* Warning if no staff rates */}
+            {!boq.staff.some((r) => r.monthly_rate > 0) && (
+              <div className="flex items-center gap-2 rounded-lg border border-warning bg-warning-bg px-4 py-3 text-[12.5px] text-warning">
+                <span className="material-symbols-outlined text-[16px]">warning</span>
+                Set staff monthly rates in the Staff Rates tab first to get accurate cost analysis.
+              </div>
+            )}
+
+            <div className="grid gap-5 lg:grid-cols-2">
+              {/* Cost multipliers */}
+              <div className="rounded-xl border border-border bg-surface shadow-sm p-5 flex flex-col gap-4">
+                <div>
+                  <p className="text-[13px] font-semibold text-text">Internal Cost Multipliers</p>
+                  <p className="text-[11.5px] text-text-secondary mt-0.5">Adjust add-on % over basic monthly rate</p>
+                </div>
+                {multFields.map(({ key, label, desc }) => (
+                  <div key={key} className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12.5px] font-medium text-text">{label}</p>
+                      <p className="text-[11px] text-text-muted">{desc}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <input
+                        type="number"
+                        min={0}
+                        max={200}
+                        value={labMult[key]}
+                        onChange={(e) => setLabMult((prev) => ({ ...prev, [key]: parseFloat(e.target.value) || 0 }))}
+                        className="w-16 rounded border border-border bg-surface-dim px-2 py-1.5 text-[12px] text-center text-text focus:border-primary outline-none"
+                      />
+                      <span className="text-[11px] text-text-muted">%</span>
+                    </div>
+                  </div>
+                ))}
+                <div className="rounded-lg bg-surface-dim border border-border-light px-4 py-3 mt-1">
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-text-secondary">Total add-on over basic rate:</span>
+                    <span className="font-bold text-text">{totalAddOnPct}%</span>
+                  </div>
+                  <div className="flex justify-between text-[12px] mt-1">
+                    <span className="text-text-secondary">Effective cost multiplier:</span>
+                    <span className="font-bold text-primary">×{multiplier.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* P&L snapshot */}
+              <div className="flex flex-col gap-4">
+                <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
+                  <p className="text-[13px] font-semibold text-text mb-4">Bid P&L Snapshot</p>
+                  {[
+                    { label: "Bid Price (incl. VAT)", value: fmtAED(bidPrice), cls: "text-text" },
+                    { label: "Internal Staff Cost", value: fmtAED(internalStaffCost), cls: "text-text-secondary", sub: `basic × ${multiplier.toFixed(2)}` },
+                    { label: "Internal BOQ Cost", value: fmtAED(internalBoqCost), cls: "text-text-secondary", sub: "BOQ ex-VAT × 0.85" },
+                    { label: "Total Estimated Cost", value: fmtAED(totalInternalCost), cls: "text-text", divider: true },
+                    { label: "Gross Profit", value: fmtAED(grossProfit), cls: grossProfit >= 0 ? "text-success" : "text-danger" },
+                    { label: "Profit Margin", value: `${marginPct.toFixed(1)}%`, cls: marginPct >= labMult.profit_target ? "text-success font-extrabold" : "text-danger font-extrabold" },
+                    { label: "Target Profit", value: fmtAED(targetProfit), cls: "text-text-secondary", sub: `${labMult.profit_target}% on cost` },
+                  ].map(({ label, value, cls, sub, divider }) => (
+                    <div key={label} className={`flex items-start justify-between py-2 border-b border-border-light last:border-0 ${divider ? "border-t-2 border-[#8B3520] mt-1 pt-3" : ""}`}>
+                      <div>
+                        <p className="text-[12px] text-text-secondary">{label}</p>
+                        {sub && <p className="text-[10.5px] text-text-muted">{sub}</p>}
+                      </div>
+                      <span className={`font-mono text-[13px] ${cls}`}>AED {value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Visual margin bar */}
+                <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[12px] font-semibold text-text">Margin vs Target</p>
+                    <span className={`text-[13px] font-bold ${marginPct >= labMult.profit_target ? "text-success" : "text-danger"}`}>
+                      {marginPct.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="h-3 w-full overflow-hidden rounded-full bg-surface-mid">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${marginPct >= labMult.profit_target ? "bg-success" : "bg-danger"}`}
+                      style={{ width: `${Math.min(Math.max(marginPct, 0), 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between mt-1 text-[10px] text-text-muted">
+                    <span>0%</span>
+                    <span className="text-primary">Target {labMult.profit_target}%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+
+                {/* Staff breakdown table */}
+                {boq.staff.some((r) => r.monthly_rate > 0) && (
+                  <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border-light">
+                      <p className="text-[12px] font-semibold text-text">True Staff Cost (per role/year)</p>
+                    </div>
+                    <table className="w-full text-[11.5px]">
+                      <thead>
+                        <tr className="bg-[#8B3520] text-white">
+                          <th className="px-3 py-2 text-start font-medium">Role</th>
+                          <th className="px-3 py-2 text-center font-medium w-8">No.</th>
+                          <th className="px-3 py-2 text-right font-medium">Basic/yr</th>
+                          <th className="px-3 py-2 text-right font-medium">True Cost/yr</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {boq.staff.map((r, idx) => (
+                          <tr key={r.id} className={`border-b border-border-light ${idx % 2 === 1 ? "bg-surface-dim/40" : ""}`}>
+                            <td className="px-3 py-2 text-text">{r.job_name}</td>
+                            <td className="px-3 py-2 text-center text-text">{r.count}</td>
+                            <td className="px-3 py-2 text-right font-mono text-text-secondary">{fmtAED(r.monthly_rate * r.count * 12)}</td>
+                            <td className="px-3 py-2 text-right font-mono font-semibold text-text">{fmtAED(r.monthly_rate * r.count * 12 * multiplier)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ══ SETTINGS TAB ══════════════════════════════════════ */}
       {tab === "settings" && (

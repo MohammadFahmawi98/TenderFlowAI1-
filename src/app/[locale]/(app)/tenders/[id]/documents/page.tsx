@@ -23,7 +23,7 @@ interface SourceFile {
   extraction_status: string;
   created_at: string;
   label?: string;
-  comments?: Comment[];
+  notes?: Comment[];
 }
 
 interface Comment {
@@ -104,6 +104,7 @@ export default function DocumentsPage() {
   const [commentDraft, setDraft]    = useState<Record<string, string>>({});
   const [localLabels, setLabels]    = useState<Record<string, string>>({});
   const [localComments, setLocalComments] = useState<Record<string, Comment[]>>({});
+  const [savingNote, setSavingNote] = useState<string | null>(null);
   const fileInputRef                = useRef<HTMLInputElement>(null);
 
   async function loadDocs() {
@@ -117,10 +118,13 @@ export default function DocumentsPage() {
       setFiles(files);
       // Auto-assign labels based on filename
       const auto: Record<string, string> = {};
+      const notesMap: Record<string, Comment[]> = {};
       files.forEach((f) => {
         if (!localLabels[f.id]) auto[f.id] = guessLabel(f.original_name ?? f.name);
+        if (Array.isArray(f.notes)) notesMap[f.id] = f.notes;
       });
       setLabels((prev) => ({ ...auto, ...prev }));
+      setLocalComments((prev) => ({ ...notesMap, ...prev }));
     }
     setLoading(false);
   }
@@ -178,7 +182,7 @@ export default function DocumentsPage() {
     }, 3000);
   }
 
-  function addComment(fileId: string) {
+  async function addComment(fileId: string) {
     const text = commentDraft[fileId]?.trim();
     if (!text) return;
     const newComment: Comment = {
@@ -187,11 +191,20 @@ export default function DocumentsPage() {
       author: "You",
       created_at: new Date().toISOString(),
     };
-    setLocalComments((prev) => ({
-      ...prev,
-      [fileId]: [...(prev[fileId] ?? []), newComment],
-    }));
+    const updated = [...(localComments[fileId] ?? []), newComment];
+    setLocalComments((prev) => ({ ...prev, [fileId]: updated }));
     setDraft((prev) => ({ ...prev, [fileId]: "" }));
+    // Persist to DB
+    setSavingNote(fileId);
+    try {
+      await fetch(`/api/tenders/${id}/files/${fileId}/notes`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: updated }),
+      });
+    } finally {
+      setSavingNote(null);
+    }
   }
 
   const openDoc = docs.find((d) => d.id === openId);
@@ -355,7 +368,15 @@ export default function DocumentsPage() {
                           </div>
 
                           {/* Comments */}
-                          <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wide mb-2">Notes &amp; Comments</p>
+                          <div className="flex items-center gap-2 mb-2">
+                            <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wide">Notes &amp; Comments</p>
+                            {savingNote === f.id && (
+                              <span className="text-[10px] text-text-muted flex items-center gap-1">
+                                <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-text-muted border-t-transparent" />
+                                Saving…
+                              </span>
+                            )}
+                          </div>
                           {comments.length === 0 ? (
                             <p className="text-[12px] text-text-muted mb-2">No notes yet — add context about this file.</p>
                           ) : (

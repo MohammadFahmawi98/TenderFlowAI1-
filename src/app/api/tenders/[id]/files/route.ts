@@ -13,7 +13,7 @@ export async function GET(
   const supabase = db();
   const { data, error } = await supabase
     .from("tender_files")
-    .select("id,name,original_name,mime,size_bytes,extraction_status,created_at")
+    .select("id,name,original_name,mime,size_bytes,extraction_status,created_at,notes")
     .eq("tender_id", id)
     .order("created_at", { ascending: true });
 

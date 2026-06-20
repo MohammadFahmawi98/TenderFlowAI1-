@@ -221,6 +221,24 @@ export async function POST(
     supabase.from("tender_extractions").select("*").eq("tender_id", tenderId).maybeSingle(),
   ]);
 
+  // Build BOQ summary string for agent context
+  let boqSummary: string | undefined;
+  const boqData = extraction?.boq_data as { sections?: Array<{ label: string; items: Array<{ description: string; qty: number; monthly_rate: number }> }>; staff?: Array<{ job_name: string; count: number; monthly_rate: number }>; vat_pct?: number } | null;
+  if (boqData?.sections?.length) {
+    const lines: string[] = ["BOQ SUMMARY (saved in Estimation tab):"];
+    for (const sec of boqData.sections) {
+      const secTotal = sec.items.reduce((s, it) => s + it.monthly_rate * it.qty, 0);
+      if (secTotal > 0) lines.push(`  ${sec.label}: AED ${secTotal.toLocaleString()}/yr`);
+    }
+    if (boqData.staff?.length) {
+      const staffLines = boqData.staff
+        .filter((r) => r.monthly_rate > 0)
+        .map((r) => `    ${r.job_name} ×${r.count}: AED ${(r.monthly_rate * r.count * 12).toLocaleString()}/yr`);
+      if (staffLines.length) { lines.push("  STAFF RATES:"); lines.push(...staffLines); }
+    }
+    if (lines.length > 1) boqSummary = lines.join("\n");
+  }
+
   const ctx: ExtractionContext = {
     tender_name:             extraction?.tender_name ?? tenderRow?.name ?? "Untitled Tender",
     client_name:             extraction?.client_name ?? tenderRow?.client ?? "Client",
@@ -232,6 +250,7 @@ export async function POST(
     asset_information:       Array.isArray(extraction?.asset_information) ? extraction.asset_information : [],
     deadline:                extraction?.deadline ?? tenderRow?.submission_deadline,
     contract_duration:       extraction?.contract_duration ?? tenderRow?.contract_duration,
+    boq_summary:             boqSummary,
   };
 
   // Ensure agent_runs rows exist

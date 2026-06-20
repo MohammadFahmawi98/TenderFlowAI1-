@@ -25,6 +25,7 @@ export interface ExtractionContext {
   asset_information: string[];
   deadline?: string;
   contract_duration?: string;
+  boq_summary?: string;
 }
 
 // â”€â”€ Intelligence Briefing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -155,11 +156,11 @@ Scope: ${ctx.scope_of_work}
 Commercial Requirements: ${ctx.commercial_requirements.join("; ")}
 Contract Duration: ${ctx.contract_duration ?? "As per tender"}
 Staffing Requirements: ${ctx.staffing_requirements.join("; ")}
-
+${ctx.boq_summary ? `\n${ctx.boq_summary}\n` : ""}
 Produce:
 1. PRICING STRATEGY & APPROACH
 2. COST STRUCTURE BREAKDOWN (Labour / Materials / Overhead / Profit)
-3. BOQ ANALYSIS SUMMARY (line items with indicative costs in AED)
+3. BOQ ANALYSIS SUMMARY (line items with indicative costs in AED — use the BOQ SUMMARY above if provided)
 4. COMMERCIAL ASSUMPTIONS & QUALIFICATIONS
 5. PAYMENT TERMS RECOMMENDATION
 6. VALUE ENGINEERING OPPORTUNITIES
