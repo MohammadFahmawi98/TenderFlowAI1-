@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "@/i18n/navigation";
@@ -16,25 +16,33 @@ interface Tender {
   created_at: string;
 }
 
-const STATUS_STYLES: Record<string, { label: string; cls: string }> = {
-  draft:       { label: "Draft",       cls: "text-text-muted bg-surface-dim" },
-  analyzing:   { label: "Analyzing",   cls: "text-primary bg-primary-light" },
-  in_progress: { label: "In Proposal", cls: "text-warning bg-warning-bg" },
-  in_review:   { label: "Review",      cls: "text-warning bg-warning-bg" },
-  ready:       { label: "Ready",       cls: "text-success bg-success-bg" },
-  submitted:   { label: "Submitted",   cls: "text-success bg-success-bg" },
-  won:         { label: "Won",         cls: "text-success bg-success-bg" },
-  lost:        { label: "Lost",        cls: "text-danger bg-danger-bg" },
-  no_bid:      { label: "No Bid",      cls: "text-text-muted bg-surface-dim" },
-  archived:    { label: "Archived",    cls: "text-text-muted bg-surface-dim" },
+const STATUS_META: Record<string, { label: string; cls: string; color: string }> = {
+  draft:       { label: "Draft",       cls: "text-text-muted bg-surface-dim",  color: "#94A3B8" },
+  analyzing:   { label: "Analyzing",   cls: "text-primary bg-primary-light",   color: "#2563EB" },
+  in_progress: { label: "In Proposal", cls: "text-primary bg-primary-light",   color: "#2563EB" },
+  in_review:   { label: "In Review",   cls: "text-warning bg-warning-bg",      color: "#D97706" },
+  ready:       { label: "Ready",       cls: "text-success bg-success-bg",      color: "#16A34A" },
+  submitted:   { label: "Submitted",   cls: "text-success bg-success-bg",      color: "#16A34A" },
+  won:         { label: "Won",         cls: "text-success bg-success-bg",      color: "#8B3520" },
+  lost:        { label: "Lost",        cls: "text-danger bg-danger-bg",        color: "#DC2626" },
+  no_bid:      { label: "No Bid",      cls: "text-text-muted bg-surface-dim",  color: "#94A3B8" },
 };
 
 function daysUntil(dateStr: string) {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
 }
-
 function fmt(v: number) {
   return v >= 1_000_000 ? `AED ${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `AED ${(v / 1_000).toFixed(0)}K` : `AED ${v}`;
+}
+function relTime(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins  = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days  = Math.floor(diff / 86400000);
+  if (mins < 1)   return "just now";
+  if (mins < 60)  return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  return `${days}d ago`;
 }
 
 export default function DashboardPage() {
@@ -77,9 +85,10 @@ export default function DashboardPage() {
     finally { setUploading(false); }
   }
 
-  const active = tenders.filter((t) => !["archived", "submitted", "won", "lost", "no_bid"].includes(t.status));
+  // ── Computed stats ───────────────────────────────────────────────────────────
+  const active = tenders.filter((t) => !["archived","submitted","won","lost","no_bid"].includes(t.status));
   const won = tenders.filter((t) => t.status === "won").length;
-  const totalSubmitted = tenders.filter((t) => ["submitted", "won", "lost"].includes(t.status)).length;
+  const totalSubmitted = tenders.filter((t) => ["submitted","won","lost"].includes(t.status)).length;
   const winRate = totalSubmitted > 0 ? Math.round((won / totalSubmitted) * 100) : null;
   const pipelineVal = active.reduce((s, t) => s + (t.contract_value ?? 0), 0);
   const upcoming = tenders
@@ -99,40 +108,36 @@ export default function DashboardPage() {
     ? `${won} won of ${totalSubmitted} submitted`
     : avgWin != null ? "AI probability avg" : "No submissions yet";
 
+  // Pipeline distribution for the status bar
+  const PIPELINE_STAGES = [
+    { key: "draft",       label: "Draft",      statuses: ["draft"] },
+    { key: "in_progress", label: "In Proposal", statuses: ["analyzing","in_progress"] },
+    { key: "in_review",   label: "In Review",   statuses: ["in_review","ready"] },
+    { key: "submitted",   label: "Submitted",   statuses: ["submitted"] },
+    { key: "won",         label: "Won",         statuses: ["won"] },
+    { key: "lost",        label: "Lost",        statuses: ["lost","no_bid"] },
+  ];
+  const stageCounts = PIPELINE_STAGES.map((s) => ({
+    ...s,
+    count: tenders.filter((t) => s.statuses.includes(t.status)).length,
+    color: STATUS_META[s.key]?.color ?? "#94A3B8",
+  }));
+  const total = tenders.length;
+
+  // Recent tenders (sorted by created_at desc)
+  const recent = [...tenders].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
   const KPI = [
-    {
-      label: "Active Tenders",
-      value: String(active.length),
-      sub: `${tenders.length} total across all stages`,
-      icon: "folder_open",
-      color: "text-primary",
-    },
-    {
-      label: "Win Rate",
-      value: displayWinRate,
-      sub: winRateSub,
-      icon: "emoji_events",
-      color: "text-success",
-    },
-    {
-      label: "Pipeline Value",
-      value: pipelineVal ? fmt(pipelineVal) : "—",
-      sub: "Active bids combined",
-      icon: "payments",
-      color: "text-primary",
-    },
-    {
-      label: "Upcoming Deadlines",
-      value: String(upcoming.length),
-      sub: upcoming.length > 0 ? `Next in ${daysUntil(upcoming[0]?.submission_deadline!)}d` : "None in 30 days",
-      icon: "schedule",
-      color: upcoming.length > 0 ? "text-warning" : "text-text-muted",
-    },
+    { label: "Active Tenders",     value: String(active.length),                   sub: `${tenders.length} total across all stages`, icon: "folder_open",  color: "text-primary" },
+    { label: "Win Rate",           value: displayWinRate,                           sub: winRateSub,                                  icon: "emoji_events", color: "text-success" },
+    { label: "Pipeline Value",     value: pipelineVal ? fmt(pipelineVal) : "—",    sub: "Active bids combined",                      icon: "payments",     color: "text-primary" },
+    { label: "Upcoming Deadlines", value: String(upcoming.length),                  sub: upcoming.length > 0 ? `Next in ${daysUntil(upcoming[0].submission_deadline!)}d` : "None in 30 days",
+                                                                                                                                      icon: "schedule",     color: upcoming.length > 0 ? "text-warning" : "text-text-muted" },
   ];
 
   return (
     <div className="flex flex-col h-full">
-      {/* Page header */}
+      {/* Header */}
       <div className="flex items-center justify-between px-8 py-4 border-b border-border-light bg-surface">
         <div>
           <h1 className="text-[20px] font-semibold text-text">
@@ -164,12 +169,9 @@ export default function DashboardPage() {
 
       <div className="flex-1 overflow-y-auto px-8 py-6">
         {/* KPI Cards */}
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {KPI.map((card) => (
-            <div
-              key={card.label}
-              className="rounded-lg border border-border bg-surface p-5 shadow-sm"
-            >
+            <div key={card.label} className="rounded-lg border border-border bg-surface p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-[11px] uppercase tracking-wide font-medium text-text-secondary">{card.label}</p>
                 <span className={`material-symbols-outlined text-[20px] ${card.color}`}>{card.icon}</span>
@@ -180,21 +182,53 @@ export default function DashboardPage() {
           ))}
         </div>
 
+        {/* Pipeline status distribution bar */}
+        {total > 0 && (
+          <div className="mb-6 rounded-lg border border-border bg-surface shadow-sm p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[13px] font-semibold text-text">Pipeline Distribution</p>
+              <p className="text-[11px] text-text-muted">{total} tender{total !== 1 ? "s" : ""} total</p>
+            </div>
+            {/* Stacked bar */}
+            <div className="flex h-3 w-full overflow-hidden rounded-full mb-3 gap-0.5">
+              {stageCounts.filter((s) => s.count > 0).map((s) => (
+                <div
+                  key={s.key}
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${(s.count / total) * 100}%`, background: s.color, minWidth: 4 }}
+                  title={`${s.label}: ${s.count}`}
+                />
+              ))}
+            </div>
+            {/* Legend */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+              {stageCounts.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => router.push(`/tenders`)}
+                  className="flex items-center gap-1.5 text-[11.5px] text-text-secondary hover:text-text transition-colors"
+                >
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ background: s.color }} />
+                  {s.label}
+                  <span className="font-bold text-text">{s.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Active Pipeline table */}
           <div className="lg:col-span-2">
             <div className="rounded-lg border border-border bg-surface shadow-sm overflow-hidden">
               <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-light">
                 <h2 className="text-[14px] font-semibold text-text">Active Pipeline</h2>
-                <div className="flex gap-2">
-                  <button className="rounded border border-border px-3 py-1 text-[11px] text-text-secondary hover:bg-surface-dim transition-colors">Filter</button>
-                  <button
-                    onClick={() => router.push("/tenders")}
-                    className="rounded border border-border px-3 py-1 text-[11px] text-text-secondary hover:bg-surface-dim transition-colors"
-                  >
-                    View all →
-                  </button>
-                </div>
+                <button
+                  onClick={() => router.push("/tenders")}
+                  className="rounded border border-border px-3 py-1 text-[11px] text-text-secondary hover:bg-surface-dim transition-colors"
+                >
+                  View all →
+                </button>
               </div>
 
               {tenders.length === 0 ? (
@@ -216,7 +250,7 @@ export default function DashboardPage() {
                 <table className="w-full text-[13px]">
                   <thead>
                     <tr className="border-b border-border-light bg-surface-dim">
-                      <th className="px-5 py-3 text-start text-[11px] font-semibold uppercase tracking-wide text-text-secondary">Tender Name</th>
+                      <th className="px-5 py-3 text-start text-[11px] font-semibold uppercase tracking-wide text-text-secondary">Tender</th>
                       <th className="px-4 py-3 text-start text-[11px] font-semibold uppercase tracking-wide text-text-secondary">Value</th>
                       <th className="px-4 py-3 text-start text-[11px] font-semibold uppercase tracking-wide text-text-secondary">Status</th>
                       <th className="px-4 py-3 text-start text-[11px] font-semibold uppercase tracking-wide text-text-secondary">Deadline</th>
@@ -224,8 +258,8 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {tenders.slice(0, 6).map((t) => {
-                      const s = STATUS_STYLES[t.status] ?? { label: t.status, cls: "text-text-muted bg-surface-dim" };
+                    {active.slice(0, 6).map((t) => {
+                      const s = STATUS_META[t.status] ?? { label: t.status, cls: "text-text-muted bg-surface-dim" };
                       const d = t.submission_deadline ? daysUntil(t.submission_deadline) : null;
                       return (
                         <tr
@@ -237,13 +271,9 @@ export default function DashboardPage() {
                             <p className="font-medium text-text truncate max-w-[180px]">{t.name}</p>
                             {t.client && <p className="text-[11px] text-text-muted mt-0.5">{t.client}</p>}
                           </td>
-                          <td className="px-4 py-3.5 font-medium text-text">
-                            {t.contract_value ? fmt(t.contract_value) : "—"}
-                          </td>
+                          <td className="px-4 py-3.5 font-medium text-text">{t.contract_value ? fmt(t.contract_value) : "—"}</td>
                           <td className="px-4 py-3.5">
-                            <span className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${s.cls}`}>
-                              {s.label}
-                            </span>
+                            <span className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${s.cls}`}>{s.label}</span>
                           </td>
                           <td className={`px-4 py-3.5 text-[12px] ${d != null && d <= 7 ? "text-danger font-medium" : "text-text-secondary"}`}>
                             {d != null ? (d >= 0 ? `${d}d` : "Passed") : "—"}
@@ -251,11 +281,8 @@ export default function DashboardPage() {
                           <td className="px-4 py-3.5">
                             {t.win_probability != null ? (
                               <div className="flex items-center gap-2">
-                                <div className="flex-1 h-1.5 rounded-full bg-surface-mid max-w-[60px]">
-                                  <div
-                                    className="h-full rounded-full bg-primary"
-                                    style={{ width: `${t.win_probability}%` }}
-                                  />
+                                <div className="flex-1 h-1.5 rounded-full bg-surface-mid max-w-[60px] overflow-hidden">
+                                  <div className="h-full rounded-full bg-primary" style={{ width: `${t.win_probability}%` }} />
                                 </div>
                                 <span className="text-[12px] font-medium text-text">{t.win_probability}%</span>
                               </div>
@@ -264,6 +291,13 @@ export default function DashboardPage() {
                         </tr>
                       );
                     })}
+                    {active.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-10 text-center text-[12px] text-text-muted">
+                          No active tenders — upload an RFP to get started.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               )}
@@ -272,54 +306,68 @@ export default function DashboardPage() {
 
           {/* Right column */}
           <div className="flex flex-col gap-4">
-            {/* Recent Activity */}
-            <div className="rounded-lg border border-border bg-surface shadow-sm">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border-light">
-                <h2 className="text-[13px] font-semibold text-text">Recent Activity</h2>
-                <a href="/tenders" className="text-[11px] text-primary hover:underline">View Feed</a>
-              </div>
-              <div className="p-4 flex flex-col gap-3">
-                {tenders.length === 0 ? (
-                  <p className="text-[12px] text-text-muted text-center py-4">No activity yet</p>
-                ) : (
-                  tenders.slice(0, 4).map((t) => (
-                    <div key={t.id} className="flex items-start gap-2.5">
-                      <span className="material-symbols-outlined text-[16px] text-primary mt-0.5">description</span>
-                      <div className="min-w-0">
-                        <p className="text-[12px] font-medium text-text truncate">{t.name}</p>
-                        <p className="text-[11px] text-text-muted">
-                          {new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
             {/* Priority Deadlines */}
             <div className="rounded-lg border border-border bg-surface shadow-sm">
-              <div className="px-4 py-3 border-b border-border-light">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border-light">
+                <span className="material-symbols-outlined text-[15px] text-warning">schedule</span>
                 <h2 className="text-[13px] font-semibold text-text">Priority Deadlines</h2>
               </div>
-              <div className="p-4 flex flex-col gap-3">
+              <div className="p-4 flex flex-col gap-2.5">
                 {upcoming.length === 0 ? (
                   <p className="text-[12px] text-text-muted text-center py-4">No deadlines in 30 days</p>
                 ) : (
-                  upcoming.slice(0, 4).map((t) => {
+                  upcoming.slice(0, 5).map((t) => {
                     const d = daysUntil(t.submission_deadline!);
                     return (
                       <button
                         key={t.id}
                         onClick={() => router.push(`/tenders/${t.id}`)}
-                        className="flex items-center justify-between text-start w-full hover:bg-surface-dim rounded px-1 py-1 transition-colors"
+                        className="flex items-center gap-3 text-start w-full hover:bg-surface-dim rounded-lg px-2 py-2 transition-colors group"
                       >
-                        <div className="min-w-0">
-                          <p className="text-[12px] font-medium text-text truncate">{t.name}</p>
+                        {/* Urgency indicator */}
+                        <div className={`h-8 w-1 rounded-full shrink-0 ${d <= 3 ? "bg-danger" : d <= 7 ? "bg-warning" : "bg-border"}`} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12.5px] font-medium text-text truncate group-hover:text-primary transition-colors">{t.name}</p>
+                          {t.client && <p className="text-[10.5px] text-text-muted">{t.client}</p>}
                         </div>
-                        <span className={`ml-2 shrink-0 text-[11px] font-semibold ${d <= 3 ? "text-danger" : d <= 7 ? "text-warning" : "text-text-secondary"}`}>
-                          {d === 0 ? "Today" : d === 1 ? "Tomorrow" : `${d}d`}
+                        <span className={`ml-2 shrink-0 text-[11px] font-bold ${d <= 3 ? "text-danger" : d <= 7 ? "text-warning" : "text-text-secondary"}`}>
+                          {d === 0 ? "Today!" : d === 1 ? "Tomorrow" : `${d}d`}
                         </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="rounded-lg border border-border bg-surface shadow-sm">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border-light">
+                <h2 className="text-[13px] font-semibold text-text">Recent Activity</h2>
+                <button onClick={() => router.push("/tenders")} className="text-[11px] text-primary hover:underline">All →</button>
+              </div>
+              <div className="p-3 flex flex-col gap-1">
+                {recent.length === 0 ? (
+                  <p className="text-[12px] text-text-muted text-center py-4">No activity yet</p>
+                ) : (
+                  recent.slice(0, 6).map((t) => {
+                    const s = STATUS_META[t.status] ?? { label: t.status, cls: "text-text-muted bg-surface-dim", color: "#94A3B8" };
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => router.push(`/tenders/${t.id}`)}
+                        className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-dim transition-colors text-start group"
+                      >
+                        <div className="h-7 w-7 shrink-0 rounded-full flex items-center justify-center" style={{ background: `${s.color}20` }}>
+                          <span className="material-symbols-outlined text-[14px]" style={{ color: s.color }}>description</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-medium text-text truncate group-hover:text-primary transition-colors">{t.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`inline-flex rounded px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide ${s.cls}`}>{s.label}</span>
+                            <span className="text-[10px] text-text-muted">{relTime(t.created_at)}</span>
+                          </div>
+                        </div>
                       </button>
                     );
                   })
@@ -329,15 +377,33 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* AI Insight banner */}
-        <div className="mt-6 rounded-lg border border-border bg-surface shadow-sm overflow-hidden">
-          <div className="flex items-start gap-4 p-5" style={{ borderLeft: "3px solid #C8A24A" }}>
-            <span className="material-symbols-outlined text-[22px] text-primary shrink-0 mt-0.5">smart_toy</span>
+        {/* Quick actions / New tender CTA */}
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          {/* Upload CTA */}
+          <div
+            onClick={() => inputRef.current?.click()}
+            className="rounded-lg border-2 border-dashed border-border hover:border-primary/40 hover:bg-surface-dim/50 cursor-pointer transition-all p-5 flex items-center gap-4"
+          >
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px] text-primary">upload_file</span>
+            </div>
             <div>
-              <p className="text-[13px] font-semibold text-text">AI Bid Intelligence</p>
-              <p className="mt-1 text-[12px] text-text-secondary leading-relaxed">
-                Upload an RFP to activate 12 AI agents — technical proposal, compliance matrix, BOQ estimation, manpower plan, risk register, SLA framework and executive review generated automatically.
-              </p>
+              <p className="text-[13px] font-semibold text-text">New Tender from RFP</p>
+              <p className="text-[11.5px] text-text-secondary mt-0.5">Upload a PDF, DOCX, XLSX or ZIP — AI generates the full bid package automatically</p>
+            </div>
+            {uploading && <span className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent shrink-0" />}
+          </div>
+
+          {/* AI banner */}
+          <div className="rounded-lg border border-border bg-surface shadow-sm overflow-hidden">
+            <div className="flex items-start gap-4 p-5 h-full" style={{ borderLeft: "3px solid #C8A24A" }}>
+              <span className="material-symbols-outlined text-[22px] text-primary shrink-0 mt-0.5">smart_toy</span>
+              <div>
+                <p className="text-[13px] font-semibold text-text">12 AI Agents per Tender</p>
+                <p className="mt-1 text-[12px] text-text-secondary leading-relaxed">
+                  Technical proposal · Compliance matrix · BOQ · Manpower plan · Risk register · SLA framework · Executive review — all generated automatically from your RFP files.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -347,4 +413,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
