@@ -28,6 +28,11 @@ interface Extraction {
   deadline?: string;
   contract_duration?: string;
   client_name?: string;
+  boq_data?: {
+    sections?: Array<{ label: string; items: Array<{ description: string; qty: number; monthly_rate: number }> }>;
+    staff?: Array<{ job_name: string; count: number; monthly_rate: number }>;
+    vat_pct?: number;
+  };
 }
 
 interface AgentRun {
@@ -36,6 +41,12 @@ interface AgentRun {
   progress: number;
   current_task?: string;
   output_content?: string;
+}
+
+interface SourceFile {
+  id: string;
+  name: string;
+  extraction_status: "pending" | "processing" | "completed" | "failed";
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
@@ -136,20 +147,23 @@ export default function TenderOverviewPage() {
   const [tender, setTender] = useState<TenderFull | null>(null);
   const [extraction, setExtraction] = useState<Extraction | null>(null);
   const [agents, setAgents] = useState<AgentRun[]>([]);
+  const [files, setFiles] = useState<SourceFile[]>([]);
 
   useEffect(() => {
     let active = true;
     let t: ReturnType<typeof setTimeout>;
 
     async function load() {
-      const [td, ex, ag] = await Promise.all([
+      const [td, ex, ag, fl] = await Promise.all([
         fetch(`/api/tenders/${id}`).then((r) => r.json()).catch(() => null),
         fetch(`/api/tenders/${id}/extraction`).then((r) => r.ok ? r.json() : null).catch(() => null),
         fetch(`/api/tenders/${id}/agents`).then((r) => r.json()).catch(() => []),
+        fetch(`/api/tenders/${id}/files`).then((r) => r.ok ? r.json() : []).catch(() => []),
       ]);
       if (!active) return;
       if (td) setTender(td);
       if (ex) setExtraction(ex);
+      if (Array.isArray(fl)) setFiles(fl);
       if (Array.isArray(ag)) {
         setAgents(ag);
         if (ag.some((a: AgentRun) => a.status === "running" || a.status === "waiting")) {
@@ -179,6 +193,25 @@ export default function TenderOverviewPage() {
     : undefined;
 
   const agentMap = Object.fromEntries(agents.map((a) => [a.agent_type, a]));
+
+  // File stats
+  const fileExtracted = files.filter((f) => f.extraction_status === "completed").length;
+  const fileFailed = files.filter((f) => f.extraction_status === "failed").length;
+  const fileTotal = files.length;
+
+  // BOQ quick-summary from extraction
+  let boqTotal = 0;
+  let boqLineCount = 0;
+  const boqData = extraction?.boq_data;
+  if (boqData?.sections?.length) {
+    for (const sec of boqData.sections) {
+      for (const item of sec.items) {
+        const v = item.monthly_rate * item.qty;
+        if (v > 0) { boqTotal += v; boqLineCount++; }
+      }
+    }
+    if (boqData.vat_pct && boqTotal > 0) boqTotal *= 1 + boqData.vat_pct / 100;
+  }
 
   // Derive recommendation from executive_review output if available
   const execRun = agentMap["executive_review"];
@@ -403,6 +436,85 @@ export default function TenderOverviewPage() {
         </div>
       </div>
 
+      {/* ── Source Files + BOQ Summary row ──────────────────────────────── */}
+      {(fileTotal > 0 || boqTotal > 0) && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Source Files card */}
+          {fileTotal > 0 && (
+            <div
+              className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden cursor-pointer hover:border-brand/30 transition-colors"
+              onClick={() => router.push(`/tenders/${id}/documents`)}
+            >
+              <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
+                <span className="material-symbols-outlined text-[16px] text-text-muted">folder_open</span>
+                <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">Source Documents</p>
+                <span className="ms-auto text-[10px] text-text-muted hover:text-primary transition-colors flex items-center gap-0.5">
+                  View all <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-6 p-5">
+                <div className="text-center">
+                  <p className="text-[26px] font-bold text-text">{fileTotal}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-text-muted">Uploaded</p>
+                </div>
+                <div className="flex-1 space-y-2">
+                  {[
+                    { label: "Extracted", count: fileExtracted, color: "bg-success", textColor: "text-success" },
+                    { label: "Failed", count: fileFailed, color: "bg-danger", textColor: "text-danger" },
+                    { label: "Pending", count: fileTotal - fileExtracted - fileFailed, color: "bg-text-muted", textColor: "text-text-muted" },
+                  ].filter((r) => r.count > 0).map((r) => (
+                    <div key={r.label} className="flex items-center justify-between text-[11.5px]">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`h-1.5 w-1.5 rounded-full ${r.color}`} />
+                        <span className="text-text-secondary">{r.label}</span>
+                      </div>
+                      <span className={`font-semibold ${r.textColor}`}>{r.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* BOQ Summary card */}
+          {boqTotal > 0 && (
+            <div
+              className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden cursor-pointer hover:border-brand/30 transition-colors"
+              onClick={() => router.push(`/tenders/${id}/estimation`)}
+            >
+              <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
+                <span className="material-symbols-outlined text-[16px] text-text-muted">receipt_long</span>
+                <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">BOQ Estimate</p>
+                <span className="ms-auto text-[10px] text-text-muted hover:text-primary transition-colors flex items-center gap-0.5">
+                  Open Estimation <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
+                </span>
+              </div>
+              <div className="p-5">
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-text-muted mb-0.5">Total Bid Price (incl. VAT)</p>
+                    <p className="text-[24px] font-bold text-text">
+                      AED {boqTotal >= 1_000_000
+                        ? `${(boqTotal / 1_000_000).toFixed(2)}M`
+                        : `${(boqTotal / 1_000).toFixed(0)}K`}
+                    </p>
+                  </div>
+                  <div className="text-end">
+                    <p className="text-[10px] uppercase tracking-wide text-text-muted mb-0.5">Line Items</p>
+                    <p className="text-[20px] font-bold text-text-secondary">{boqLineCount}</p>
+                  </div>
+                </div>
+                {boqData?.staff?.filter((r) => r.monthly_rate > 0).length ? (
+                  <p className="mt-3 text-[11.5px] text-text-secondary">
+                    {boqData.staff!.filter((r) => r.monthly_rate > 0).length} staff roles with rates assigned
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Scope of Work ───────────────────────────────────────────────── */}
       {extraction?.scope_of_work && (
         <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
@@ -439,6 +551,31 @@ export default function TenderOverviewPage() {
               </ul>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── Asset Information ────────────────────────────────────────────── */}
+      {extraction?.asset_information && extraction.asset_information.length > 0 && (
+        <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
+            <span className="material-symbols-outlined text-[16px] text-text-muted">build_circle</span>
+            <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">Asset Information</p>
+            <span className="ms-auto text-[10px] text-text-muted">{extraction.asset_information.length} items</span>
+          </div>
+          <div className="grid gap-0 sm:grid-cols-2">
+            {extraction.asset_information.map((item, i) => (
+              <div key={i} className={[
+                "flex items-start gap-3 px-5 py-2.5 text-[12.5px] text-text border-border-light",
+                i % 2 === 0 ? "sm:border-e" : "",
+                i < extraction.asset_information!.length - 2 ? "border-b" : i === extraction.asset_information!.length - 2 && extraction.asset_information!.length % 2 === 0 ? "" : i < extraction.asset_information!.length - 1 ? "border-b" : "",
+              ].join(" ")}>
+                <span className="material-symbols-outlined mt-0.5 shrink-0 text-[14px] text-text-muted">
+                  handyman
+                </span>
+                {item}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
