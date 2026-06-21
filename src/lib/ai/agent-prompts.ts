@@ -52,7 +52,7 @@ Produce a strategic intelligence brief with:
 8. RECOMMENDED BID STRATEGY
 
 Be specific to UAE/GCC FM market dynamics and Etihad International Hospitality's positioning.`,
-    maxTokens: 2000,
+    maxTokens: 3000,
   });
 }
 
@@ -76,7 +76,7 @@ Produce a professional qualification assessment with these sections:
 5. RECOMMENDED STRATEGY
 
 Format as professional business document text.`,
-    maxTokens: 2000,
+    maxTokens: 3000,
   });
 }
 
@@ -109,7 +109,7 @@ SUBMISSION CHECKLIST
 MISSING DOCUMENTS REPORT
 
 List any documents that still need to be prepared, with owner and due date.`,
-    maxTokens: 2000,
+    maxTokens: 3000,
   });
 }
 
@@ -140,7 +140,7 @@ Write a full Technical Proposal with these sections:
 10. KEY PERFORMANCE INDICATORS
 
 This must be submission-ready, specific to FM, and tailored to the client's requirements.`,
-    maxTokens: 2500,
+    maxTokens: 4000,
   });
 }
 
@@ -166,7 +166,7 @@ Produce:
 6. VALUE ENGINEERING OPPORTUNITIES
 
 Be specific with AED cost ranges based on UAE FM market rates.`,
-    maxTokens: 2000,
+    maxTokens: 3500,
   });
 }
 
@@ -217,7 +217,7 @@ List mandatory training by role with frequency and certification body.
 STAFF RETENTION STRATEGY
 
 Key initiatives for staff retention in UAE FM market.`,
-    maxTokens: 2000,
+    maxTokens: 3000,
   });
 }
 
@@ -267,7 +267,7 @@ Key principles for spares management, critical stock levels, procurement.
 ASSET LIFECYCLE MANAGEMENT
 
 How EIH tracks asset age, plans replacements, and advises clients on CapEx.`,
-    maxTokens: 2000,
+    maxTokens: 3000,
   });
 }
 
@@ -305,7 +305,7 @@ OPPORTUNITY REGISTER
 RISK MONITORING PLAN
 
 How risks will be tracked, reported, and escalated during contract delivery.`,
-    maxTokens: 2000,
+    maxTokens: 3000,
   });
 }
 
@@ -332,7 +332,7 @@ Produce:
 10. REGULATORY COMPLIANCE (UAE/AD/Dubai authorities)
 
 Reference UAE Labour Law, OSHAD-SF, and relevant authority requirements.`,
-    maxTokens: 2000,
+    maxTokens: 3000,
   });
 }
 
@@ -364,7 +364,7 @@ SLIDE 14: Why Choose Us â€” Key Differentiators
 SLIDE 15: Call to Action & Next Steps
 
 For each slide: TITLE | KEY MESSAGES (3-4 bullets) | SPEAKER NOTES`,
-    maxTokens: 2000,
+    maxTokens: 3000,
   });
 }
 
@@ -409,7 +409,7 @@ REPORTING REQUIREMENTS
 
 | Report | Frequency | Format | Recipient | Deadline |
 |--------|-----------|--------|-----------|----------|`,
-    maxTokens: 2000,
+    maxTokens: 3000,
   });
 }
 
@@ -453,7 +453,7 @@ Return as JSON:
   "action_items": ["array"],
   "full_report": "string"
 }`,
-    maxTokens: 2000,
+    maxTokens: 3000,
     responseFormat: "json",
   });
 }

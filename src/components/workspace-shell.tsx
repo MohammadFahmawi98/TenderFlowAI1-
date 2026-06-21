@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, Link, useRouter } from "@/i18n/navigation";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface Tender {
@@ -22,9 +22,29 @@ interface PresenceUser {
   tab: string;
 }
 
+interface AgentStatus {
+  status: "waiting" | "running" | "completed" | "failed";
+  progress: number;
+}
+
 const PRESENCE_COLORS = ["#8B3520","#C8A24A","#2563EB","#16A34A","#9333EA","#DC2626","#0891B2"];
 function colorFor(id: string) { return PRESENCE_COLORS[Math.abs(id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % PRESENCE_COLORS.length]; }
 function initials(email: string) { return email.split("@")[0].slice(0, 2).toUpperCase(); }
+
+// Two parallel batches + sequential tail
+const AGENT_BATCHES: string[][] = [
+  ["intelligence", "qualification", "compliance", "technical", "manpower"],
+  ["commercial", "ppm", "risk", "hse", "sla"],
+  ["presentation"],
+  ["executive_review"],
+];
+
+const AGENT_LABELS: Record<string, string> = {
+  intelligence: "Intel", qualification: "Qual", compliance: "Comply",
+  technical: "Tech", commercial: "Comm", manpower: "Staff",
+  ppm: "PPM", risk: "Risk", hse: "HSE", sla: "SLA",
+  presentation: "Pres", executive_review: "Review",
+};
 
 const TABS = [
   { key: "overview",      label: "Overview",     path: "" },
@@ -72,49 +92,54 @@ export function WorkspaceShell({
   tender: Tender | null;
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const [running, setRunning] = useState(false);
-  const [runError, setRunError] = useState("");
-  const [showMenu, setShowMenu] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [currentStatus, setCurrentStatus] = useState(tender?.status ?? "");
-  const [savingStatus, setSavingStatus] = useState(false);
-  const [presence, setPresence] = useState<PresenceUser[]>([]);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
+  const pathname  = usePathname();
+  const router    = useRouter();
 
+  const [running,          setRunning]          = useState(false);
+  const [runError,         setRunError]         = useState("");
+  const [showMenu,         setShowMenu]         = useState(false);
+  const [confirmDelete,    setConfirmDelete]    = useState(false);
+  const [deleting,         setDeleting]         = useState(false);
+  const [showStatusModal,  setShowStatusModal]  = useState(false);
+  const [currentStatus,    setCurrentStatus]    = useState(tender?.status ?? "");
+  const [savingStatus,     setSavingStatus]     = useState(false);
+  const [presence,         setPresence]         = useState<PresenceUser[]>([]);
+  const [agentStatuses,    setAgentStatuses]    = useState<Record<string, AgentStatus>>({});
+  const [completedCount,   setCompletedCount]   = useState(0);
+
+  const menuRef     = useRef<HTMLDivElement>(null);
+  const channelRef  = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
+  const rtChannelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
+
+  // Close menu on outside click
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowMenu(false);
-      }
+    function handle(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
     }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
   }, []);
 
-  // Supabase Realtime presence — shows who's viewing this tender workspace
+  // ── Supabase Realtime: presence + agent progress ─────────────────────────
   useEffect(() => {
     if (!tender?.id) return;
     const supabase = createClient();
     let myId = "";
 
+    // Presence channel
     supabase.auth.getUser().then(({ data }) => {
       const email = data.user?.email ?? `guest-${Math.random().toString(36).slice(2, 7)}`;
       myId = data.user?.id ?? email;
       const tab = pathname.split("/").pop() ?? "overview";
 
-      const channel = supabase.channel(`workspace:${tender.id}`, {
+      const presenceCh = supabase.channel(`workspace:${tender.id}`, {
         config: { presence: { key: myId } },
       });
-      channelRef.current = channel;
+      channelRef.current = presenceCh;
 
-      channel
+      presenceCh
         .on("presence", { event: "sync" }, () => {
-          const state = channel.presenceState<{ initials: string; color: string; tab: string }>();
+          const state = presenceCh.presenceState<{ initials: string; color: string; tab: string }>();
           const users: PresenceUser[] = Object.entries(state)
             .filter(([uid]) => uid !== myId)
             .map(([uid, metas]) => {
@@ -125,20 +150,43 @@ export function WorkspaceShell({
         })
         .subscribe(async (status) => {
           if (status === "SUBSCRIBED") {
-            await channel.track({ initials: initials(email), color: colorFor(myId), tab });
+            await presenceCh.track({ initials: initials(email), color: colorFor(myId), tab });
           }
         });
     });
 
+    // Agent progress channel — listens for agent_runs row updates
+    const rtCh = supabase
+      .channel(`agent-progress:${tender.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "agent_runs", filter: `tender_id=eq.${tender.id}` },
+        (payload) => {
+          const row = payload.new as { agent_type: string; status: string; progress: number };
+          setAgentStatuses((prev) => ({
+            ...prev,
+            [row.agent_type]: { status: row.status as AgentStatus["status"], progress: row.progress ?? 0 },
+          }));
+          if (row.status === "completed" || row.status === "failed") {
+            setCompletedCount((n) => n + 1);
+          }
+        },
+      )
+      .subscribe();
+    rtChannelRef.current = rtCh;
+
     return () => {
-      if (channelRef.current) {
-        channelRef.current.unsubscribe();
-        channelRef.current = null;
-      }
+      channelRef.current?.unsubscribe();
+      channelRef.current = null;
+      rtChannelRef.current?.unsubscribe();
+      rtChannelRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tender?.id]);
 
+  const tenderId   = tender?.id;
+
+  // ── Status helpers ────────────────────────────────────────────────────────
   async function updateStatus(status: string) {
     if (!tenderId) return;
     setSavingStatus(true);
@@ -161,35 +209,63 @@ export function WorkspaceShell({
     router.push("/tenders");
   }
 
-  const tenderId = tender?.id;
-  const base = `/tenders/${tenderId}`;
+  // ── Per-agent orchestration ───────────────────────────────────────────────
+  const runAgents = useCallback(async () => {
+    if (!tenderId || running) return;
+    setRunning(true);
+    setRunError("");
+    setAgentStatuses({});
+    setCompletedCount(0);
+    router.push(`/tenders/${tenderId}`);
+
+    try {
+      // 1. Seed all agents as "waiting"
+      const seedRes = await fetch(`/api/tenders/${tenderId}/run-agents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seed: true }),
+      });
+      if (!seedRes.ok) {
+        const b = await seedRes.json().catch(() => ({}));
+        throw new Error(b.error ?? "Failed to initialise agents");
+      }
+
+      // 2. Helper — call one agent
+      async function runOne(type: string) {
+        try {
+          await fetch(`/api/tenders/${tenderId}/run-agents`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ agentType: type }),
+          });
+        } catch (err) {
+          console.error(`[runAgents] ${type} network error:`, err);
+        }
+      }
+
+      // 3. Run in batches — each batch is parallel, batches are sequential
+      for (const batch of AGENT_BATCHES) {
+        await Promise.all(batch.map(runOne));
+      }
+    } catch (e) {
+      setRunError(e instanceof Error ? e.message : "Agent run failed");
+    } finally {
+      setRunning(false);
+    }
+  }, [tenderId, running, router]);
+
+  const base       = `/tenders/${tenderId}`;
+  const allAgents = Object.keys(AGENT_LABELS);
+  const doneCount = Object.values(agentStatuses).filter((a) => a.status === "completed").length;
+  const failCount = Object.values(agentStatuses).filter((a) => a.status === "failed").length;
 
   function isActive(tabPath: string) {
     if (tabPath === "") return pathname === base || pathname === base + "/";
     return pathname.startsWith(base + tabPath);
   }
 
-  async function runAgents() {
-    if (!tenderId || running) return;
-    setRunning(true);
-    setRunError("");
-    router.push(`/tenders/${tenderId}`);
-    try {
-      const res = await fetch(`/api/tenders/${tenderId}/run-agents`, { method: "POST" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setRunError(body.error ?? `Agent run failed (${res.status})`);
-      }
-    } catch (e) {
-      setRunError("Network error — check your connection and try again.");
-      console.error(e);
-    } finally {
-      setRunning(false);
-    }
-  }
-
   const activeStatus = currentStatus || tender?.status || "";
-  const statusStyle = activeStatus
+  const statusStyle  = activeStatus
     ? STATUS_STYLES[activeStatus] ?? { label: activeStatus.replace(/_/g, " "), cls: "text-text-muted bg-surface-dim" }
     : null;
 
@@ -199,7 +275,6 @@ export function WorkspaceShell({
       <header className="border-b border-border bg-surface">
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3.5">
           <div className="min-w-0">
-            {/* Back link */}
             <Link
               href="/tenders"
               className="mb-1.5 flex items-center gap-1 text-[12px] text-text-secondary hover:text-text transition-colors"
@@ -229,24 +304,21 @@ export function WorkspaceShell({
                   </span>
                 )}
                 {tender.contract_value && (
-                  <span>
-                    Value:{" "}
-                    <span className="text-text">{tender.contract_value.toLocaleString()} AED</span>
-                  </span>
+                  <span>Value: <span className="text-text">{tender.contract_value.toLocaleString()} AED</span></span>
                 )}
               </div>
             )}
           </div>
 
-          {/* Action buttons */}
+          {/* Right-side controls */}
           <div className="flex shrink-0 items-center gap-2">
             {/* Team presence avatars */}
             {presence.length > 0 && (
-              <div className="flex items-center -space-x-2 mr-1" title={`${presence.length} team member${presence.length > 1 ? "s" : ""} viewing`}>
+              <div className="flex items-center -space-x-2 mr-1">
                 {presence.slice(0, 4).map((u) => (
                   <div
                     key={u.user_id}
-                    className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface text-[10px] font-bold text-white ring-1 ring-white/20"
+                    className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface text-[10px] font-bold text-white"
                     style={{ background: u.color }}
                     title={`Viewing: ${u.tab}`}
                   >
@@ -260,6 +332,7 @@ export function WorkspaceShell({
                 )}
               </div>
             )}
+
             <Link
               href={`/tenders/${tenderId}/export`}
               className="rounded px-3.5 py-2 text-[12px] font-semibold text-white transition-colors"
@@ -267,23 +340,22 @@ export function WorkspaceShell({
             >
               Export Package
             </Link>
+
             <button
               onClick={runAgents}
               disabled={running}
               className="flex items-center gap-1.5 rounded border border-border px-3 py-2 text-[12px] font-medium text-text-secondary hover:bg-surface-dim disabled:opacity-50 transition-colors"
             >
-              {running && (
-                <span className="h-3 w-3 animate-spin rounded-full border-2 border-text-secondary border-t-transparent" />
-              )}
-              <span className="material-symbols-outlined text-[15px]">smart_toy</span>
-              {running ? "Running…" : "Run AI"}
+              {running
+                ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-text-secondary border-t-transparent" />
+                : <span className="material-symbols-outlined text-[15px]">smart_toy</span>}
+              {running ? `Running ${doneCount}/12…` : "Run AI"}
             </button>
-            {/* More actions menu */}
+
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setShowMenu((v) => !v)}
                 className="flex items-center rounded border border-border p-2 text-text-secondary hover:bg-surface-dim transition-colors"
-                title="More actions"
               >
                 <span className="material-symbols-outlined text-[18px]">more_vert</span>
               </button>
@@ -309,6 +381,50 @@ export function WorkspaceShell({
             </div>
           </div>
         </div>
+
+        {/* ── Agent progress bar (shows while running or just after) ─────── */}
+        {(running || doneCount > 0 || failCount > 0) && (
+          <div className="px-6 pb-3">
+            {/* Overall bar */}
+            <div className="flex items-center gap-3 mb-1.5">
+              <div className="flex-1 h-1.5 bg-surface-mid rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.round(((doneCount + failCount) / 12) * 100)}%`,
+                    background: failCount > 0 ? "#ef4444" : "#8B3520",
+                  }}
+                />
+              </div>
+              <span className="text-[11px] text-text-muted whitespace-nowrap shrink-0">
+                {doneCount}/12 done{failCount > 0 ? ` · ${failCount} failed` : ""}
+              </span>
+            </div>
+            {/* Per-agent chips */}
+            <div className="flex flex-wrap gap-1">
+              {allAgents.map((type) => {
+                const s = agentStatuses[type];
+                const cls = !s || s.status === "waiting"
+                  ? "bg-surface-dim text-text-muted"
+                  : s.status === "running"
+                  ? "bg-primary/10 text-primary border border-primary/30 animate-pulse"
+                  : s.status === "completed"
+                  ? "bg-success/10 text-success border border-success/20"
+                  : "bg-danger/10 text-danger border border-danger/20";
+                return (
+                  <span key={type} className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}>
+                    {s?.status === "running" && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+                    )}
+                    {s?.status === "completed" && "✓ "}
+                    {s?.status === "failed" && "✕ "}
+                    {AGENT_LABELS[type]}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Error banner */}
         {runError && (
@@ -338,6 +454,19 @@ export function WorkspaceShell({
                 style={active ? { color: "#8B3520", borderBottomColor: "#C8A24A" } : {}}
               >
                 {tab.label}
+                {/* Show dot if agent for this tab is running */}
+                {(() => {
+                  const map: Record<string, string> = {
+                    qualification: "qualification", compliance: "compliance",
+                    manpower: "manpower", risk: "risk", sla: "sla",
+                    assets: "ppm", documents: "technical",
+                  };
+                  const agent = map[tab.key];
+                  const st = agent ? agentStatuses[agent]?.status : undefined;
+                  if (st === "running") return <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-primary align-middle animate-pulse" />;
+                  if (st === "completed") return <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-success align-middle" />;
+                  return null;
+                })()}
               </Link>
             );
           })}
@@ -372,9 +501,7 @@ export function WorkspaceShell({
                     disabled={savingStatus}
                     className={[
                       "flex items-center justify-between rounded-lg border px-3.5 py-2.5 text-[13px] transition-colors text-start",
-                      isSelected
-                        ? "border-primary bg-primary-light font-semibold"
-                        : "border-border hover:bg-surface-dim",
+                      isSelected ? "border-primary bg-primary-light font-semibold" : "border-border hover:bg-surface-dim",
                     ].join(" ")}
                   >
                     <span className={isSelected ? "text-primary" : "text-text"}>{opt.label}</span>
@@ -390,9 +517,7 @@ export function WorkspaceShell({
                 );
               })}
             </div>
-            {savingStatus && (
-              <p className="mt-3 text-center text-[12px] text-text-muted">Saving…</p>
-            )}
+            {savingStatus && <p className="mt-3 text-center text-[12px] text-text-muted">Saving…</p>}
           </div>
         </div>
       )}

@@ -16,12 +16,23 @@ import {
   type ExtractionContext,
 } from "@/lib/ai/agent-prompts";
 import { textToHtml } from "@/lib/utils/text-to-html";
+import { z } from "zod";
 
 export const maxDuration = 60;
 
 type AgentType =
   | "intelligence" | "qualification" | "compliance" | "technical" | "commercial"
   | "manpower" | "ppm" | "risk" | "hse" | "sla" | "presentation" | "executive_review";
+
+const ALL_AGENT_TYPES: AgentType[] = [
+  "intelligence", "qualification", "compliance", "technical", "commercial",
+  "manpower", "ppm", "risk", "hse", "sla", "presentation", "executive_review",
+];
+
+const BodySchema = z.object({
+  agentType: z.string().optional(),
+  seed: z.boolean().optional(),
+}).default({});
 
 const DOC_TYPE_MAP: Record<AgentType, string> = {
   intelligence:     "other",
@@ -61,16 +72,22 @@ async function saveDocument(tenderId: string, agentType: AgentType, content: str
   const supabase = db();
   const html = textToHtml(content);
 
-  // Always save content directly to agent_runs so tab pages can render it
-  // even if the documents table pipeline fails
+  // Always persist to agent_runs first — this is the reliable path
   const { error: contentErr } = await supabase
     .from("agent_runs")
     .update({ output_content: content })
     .eq("tender_id", tenderId)
     .eq("agent_type", agentType);
-  if (contentErr) console.error(`[saveDocument] output_content update failed for ${agentType}:`, contentErr.message);
+  if (contentErr) console.error(`[saveDocument] output_content failed for ${agentType}:`, contentErr.message);
 
-  // Also persist as a formal document (best-effort)
+  // Remove any stale document for this agent so re-runs don't accumulate rows
+  await supabase
+    .from("documents")
+    .delete()
+    .eq("tender_id", tenderId)
+    .eq("agent_type", agentType);
+
+  // Insert fresh document record
   const { data: doc, error: docErr } = await supabase
     .from("documents")
     .insert({
@@ -78,6 +95,7 @@ async function saveDocument(tenderId: string, agentType: AgentType, content: str
       type: DOC_TYPE_MAP[agentType],
       title: DOC_TITLE_MAP[agentType],
       review_status: "ai_generated",
+      agent_type: agentType,
     })
     .select()
     .single();
@@ -110,22 +128,17 @@ async function saveDocument(tenderId: string, agentType: AgentType, content: str
   return doc;
 }
 
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id: tenderId } = await params;
+async function buildContext(tenderId: string): Promise<ExtractionContext> {
   const supabase = db();
-
-  // Load tender + extraction context (extraction may not exist if PDF parse failed)
   const [{ data: tenderRow }, { data: extraction }] = await Promise.all([
     supabase.from("tenders").select("name,client,submission_deadline,contract_duration").eq("id", tenderId).single(),
     supabase.from("tender_extractions").select("*").eq("tender_id", tenderId).maybeSingle(),
   ]);
 
-  // Build BOQ summary string for agent context
   let boqSummary: string | undefined;
-  const boqData = extraction?.boq_data as { sections?: Array<{ label: string; items: Array<{ description: string; qty: number; monthly_rate: number }> }>; staff?: Array<{ job_name: string; count: number; monthly_rate: number }>; vat_pct?: number } | null;
+  type BOQSection = { label: string; items: Array<{ description: string; qty: number; monthly_rate: number }> };
+  type StaffEntry = { job_name: string; count: number; monthly_rate: number };
+  const boqData = extraction?.boq_data as { sections?: BOQSection[]; staff?: StaffEntry[]; vat_pct?: number } | null;
   if (boqData?.sections?.length) {
     const lines: string[] = ["BOQ SUMMARY (saved in Estimation tab):"];
     for (const sec of boqData.sections) {
@@ -141,7 +154,7 @@ export async function POST(
     if (lines.length > 1) boqSummary = lines.join("\n");
   }
 
-  const ctx: ExtractionContext = {
+  return {
     tender_name:             extraction?.tender_name ?? tenderRow?.name ?? "Untitled Tender",
     client_name:             extraction?.client_name ?? tenderRow?.client ?? "Client",
     scope_of_work:           extraction?.scope_of_work ?? "Facility Management services as per tender documents.",
@@ -154,76 +167,67 @@ export async function POST(
     contract_duration:       extraction?.contract_duration ?? tenderRow?.contract_duration,
     boq_summary:             boqSummary,
   };
+}
 
-  // Ensure agent_runs rows exist
-  const agentTypes: AgentType[] = [
-    "intelligence","qualification","compliance","technical","commercial",
-    "manpower","ppm","risk","hse","sla","presentation","executive_review",
-  ];
-  for (const t of agentTypes) {
-    await supabase.from("agent_runs").upsert(
-      { tender_id: tenderId, agent_type: t, status: "waiting", progress: 0 },
-      { onConflict: "tender_id,agent_type" },
-    );
-  }
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id: tenderId } = await params;
+  const rawBody = await req.json().catch(() => ({}));
+  const body = BodySchema.parse(rawBody);
+  const supabase = db();
 
-  // Mark tender in_progress
-  await supabase.from("tenders").update({ status: "in_progress" }).eq("id", tenderId);
-
-  // Run agents sequentially (with parallelism where possible)
-  const outputs: Record<string, string> = {};
-
-  async function runAgent(agentType: AgentType, generator: () => Promise<string>) {
-    try {
-      await setAgent(tenderId, agentType, { status: "running", progress: 10, started_at: new Date().toISOString(), current_task: "Analysing tender requirements…" });
-      await setAgent(tenderId, agentType, { progress: 40, current_task: "Generating content…" });
-      const content = await generator();
-      outputs[agentType] = content;
-      await saveDocument(tenderId, agentType, content);
-      await setAgent(tenderId, agentType, { status: "completed", progress: 100, current_task: "Complete", completed_at: new Date().toISOString() });
-    } catch (err) {
-      await setAgent(tenderId, agentType, { status: "failed", error: String(err) });
+  // ── SEED MODE: reset all agents to "waiting" and return ─────────────────
+  if (body.seed || (!body.agentType && !body.seed)) {
+    for (const t of ALL_AGENT_TYPES) {
+      await supabase.from("agent_runs").upsert(
+        { tender_id: tenderId, agent_type: t, status: "waiting", progress: 0, output_content: null, output_doc_id: null },
+        { onConflict: "tender_id,agent_type" },
+      );
     }
+    await supabase.from("tenders").update({ status: "in_progress" }).eq("id", tenderId);
+    return NextResponse.json({ seeded: true });
   }
 
-  const startedAt = Date.now();
-  const BUDGET_MS = 50_000; // leave 10s buffer before the 60s Vercel limit
-
-  // Stage 1: run all core agents in parallel
-  await Promise.all([
-    runAgent("intelligence",  () => generateIntelligence(ctx)),
-    runAgent("qualification", () => generateQualification(ctx)),
-    runAgent("compliance",    () => generateCompliance(ctx)),
-    runAgent("technical",     () => generateTechnicalProposal(ctx)),
-    runAgent("commercial",    () => generateCommercial(ctx)),
-    runAgent("manpower",      () => generateManpower(ctx)),
-    runAgent("ppm",           () => generatePPM(ctx)),
-    runAgent("risk",          () => generateRisk(ctx)),
-    runAgent("hse",           () => generateHSE(ctx)),
-    runAgent("sla",           () => generateSLA(ctx)),
-  ]);
-
-  const elapsed = Date.now() - startedAt;
-  if (elapsed > BUDGET_MS) {
-    // Out of time — mark remaining as failed, return partial success
-    await setAgent(tenderId, "presentation",     { status: "failed", error: "Skipped: time budget exceeded" });
-    await setAgent(tenderId, "executive_review", { status: "failed", error: "Skipped: time budget exceeded" });
-    return NextResponse.json({ success: true, partial: true });
+  // ── SINGLE AGENT MODE ────────────────────────────────────────────────────
+  const agentType = body.agentType as AgentType;
+  if (!ALL_AGENT_TYPES.includes(agentType)) {
+    return NextResponse.json({ error: `Unknown agent type: ${agentType}` }, { status: 400 });
   }
 
-  // Stage 2: presentation
-  await runAgent("presentation", () => generatePresentation(ctx));
+  const ctx = await buildContext(tenderId);
 
-  if (Date.now() - startedAt > BUDGET_MS) {
-    await setAgent(tenderId, "executive_review", { status: "failed", error: "Skipped: time budget exceeded" });
-    return NextResponse.json({ success: true, partial: true });
-  }
+  // Mark running
+  await setAgent(tenderId, agentType, {
+    status: "running",
+    progress: 20,
+    started_at: new Date().toISOString(),
+    current_task: "Generating content…",
+  });
 
-  // Stage 3: executive review
-  const reviewRaw = await (async () => {
-    await setAgent(tenderId, "executive_review", { status: "running", progress: 20, current_task: "Reviewing all agent outputs…", started_at: new Date().toISOString() });
-    try {
-      const raw = await generateExecutiveReview(ctx, outputs);
+  try {
+    let content: string;
+
+    if (agentType === "executive_review") {
+      // Fetch all other completed outputs to synthesise
+      const { data: runs } = await supabase
+        .from("agent_runs")
+        .select("agent_type, output_content, status")
+        .eq("tender_id", tenderId)
+        .eq("status", "completed");
+
+      const allOutputs: Record<string, string> = {};
+      for (const r of runs ?? []) {
+        if (r.agent_type !== "executive_review" && r.output_content) {
+          allOutputs[r.agent_type] = r.output_content;
+        }
+      }
+
+      await setAgent(tenderId, agentType, { progress: 50, current_task: "Reviewing all agent outputs…" });
+      const raw = await generateExecutiveReview(ctx, allOutputs);
+
+      // Parse JSON response
       const parsed = JSON.parse(raw);
       await supabase.from("tenders").update({
         readiness_score: parsed.readiness_score,
@@ -231,14 +235,39 @@ export async function POST(
         executive_summary: parsed.executive_summary,
         status: "in_review",
       }).eq("id", tenderId);
-      await saveDocument(tenderId, "executive_review", parsed.full_report ?? raw);
-      await setAgent(tenderId, "executive_review", { status: "completed", progress: 100, current_task: "Complete", completed_at: new Date().toISOString() });
-      return parsed;
-    } catch (err) {
-      await setAgent(tenderId, "executive_review", { status: "failed", error: String(err) });
-      return null;
-    }
-  })();
 
-  return NextResponse.json({ success: true, review: reviewRaw });
+      content = parsed.full_report ?? raw;
+    } else {
+      const GENERATORS: Record<string, () => Promise<string>> = {
+        intelligence:  () => generateIntelligence(ctx),
+        qualification: () => generateQualification(ctx),
+        compliance:    () => generateCompliance(ctx),
+        technical:     () => generateTechnicalProposal(ctx),
+        commercial:    () => generateCommercial(ctx),
+        manpower:      () => generateManpower(ctx),
+        ppm:           () => generatePPM(ctx),
+        risk:          () => generateRisk(ctx),
+        hse:           () => generateHSE(ctx),
+        sla:           () => generateSLA(ctx),
+        presentation:  () => generatePresentation(ctx),
+      };
+      await setAgent(tenderId, agentType, { progress: 40 });
+      content = await GENERATORS[agentType]();
+    }
+
+    await saveDocument(tenderId, agentType, content);
+    await setAgent(tenderId, agentType, {
+      status: "completed",
+      progress: 100,
+      current_task: "Complete",
+      completed_at: new Date().toISOString(),
+    });
+
+    return NextResponse.json({ success: true, agentType });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[run-agents] ${agentType} failed:`, msg);
+    await setAgent(tenderId, agentType, { status: "failed", error: msg });
+    return NextResponse.json({ error: msg, agentType }, { status: 500 });
+  }
 }
