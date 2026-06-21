@@ -210,6 +210,23 @@ export function WorkspaceShell({
   }
 
   // ── Per-agent orchestration ───────────────────────────────────────────────
+  const runSingleAgent = useCallback(async (agentType: string) => {
+    if (!tenderId) return;
+    setAgentStatuses((prev) => ({
+      ...prev,
+      [agentType]: { status: "running", progress: 20 },
+    }));
+    try {
+      await fetch(`/api/tenders/${tenderId}/run-agents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentType }),
+      });
+    } catch (err) {
+      console.error(`[runSingleAgent] ${agentType}:`, err);
+    }
+  }, [tenderId]);
+
   const runAgents = useCallback(async () => {
     if (!tenderId || running) return;
     setRunning(true);
@@ -400,26 +417,38 @@ export function WorkspaceShell({
                 {doneCount}/12 done{failCount > 0 ? ` · ${failCount} failed` : ""}
               </span>
             </div>
-            {/* Per-agent chips */}
+            {/* Per-agent chips — click to re-run a single agent */}
             <div className="flex flex-wrap gap-1">
               {allAgents.map((type) => {
                 const s = agentStatuses[type];
+                const isRunning = s?.status === "running";
                 const cls = !s || s.status === "waiting"
                   ? "bg-surface-dim text-text-muted"
-                  : s.status === "running"
+                  : isRunning
                   ? "bg-primary/10 text-primary border border-primary/30 animate-pulse"
                   : s.status === "completed"
-                  ? "bg-success/10 text-success border border-success/20"
-                  : "bg-danger/10 text-danger border border-danger/20";
+                  ? "bg-success/10 text-success border border-success/20 hover:bg-danger/10 hover:text-danger hover:border-danger/20 group"
+                  : "bg-danger/10 text-danger border border-danger/20 hover:opacity-80";
                 return (
-                  <span key={type} className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}>
-                    {s?.status === "running" && (
+                  <button
+                    key={type}
+                    title={s?.status === "completed" ? `Re-run ${AGENT_LABELS[type]}` : AGENT_LABELS[type]}
+                    disabled={isRunning || running}
+                    onClick={() => !isRunning && !running && runSingleAgent(type)}
+                    className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors disabled:cursor-not-allowed ${cls}`}
+                  >
+                    {isRunning && (
                       <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
                     )}
-                    {s?.status === "completed" && "✓ "}
-                    {s?.status === "failed" && "✕ "}
+                    {s?.status === "completed" && (
+                      <>
+                        <span className="group-hover:hidden">✓ </span>
+                        <span className="hidden group-hover:inline">↺ </span>
+                      </>
+                    )}
+                    {s?.status === "failed" && "↺ "}
                     {AGENT_LABELS[type]}
-                  </span>
+                  </button>
                 );
               })}
             </div>

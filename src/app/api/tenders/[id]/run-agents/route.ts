@@ -130,10 +130,42 @@ async function saveDocument(tenderId: string, agentType: AgentType, content: str
 
 async function buildContext(tenderId: string): Promise<ExtractionContext> {
   const supabase = db();
-  const [{ data: tenderRow }, { data: extraction }] = await Promise.all([
+  const [{ data: tenderRow }, { data: extraction }, { data: companyRow }, { data: knowledgeDocs }] = await Promise.all([
     supabase.from("tenders").select("name,client,submission_deadline,contract_duration").eq("id", tenderId).single(),
     supabase.from("tender_extractions").select("*").eq("tender_id", tenderId).maybeSingle(),
+    supabase.from("company_profiles").select("context").limit(1).maybeSingle(),
+    supabase.from("knowledge_documents").select("name,content_text").eq("status", "indexed").not("content_text", "is", null).limit(50),
   ]);
+
+  // Company context
+  const companyContext = (companyRow?.context ?? {}) as Record<string, string>;
+
+  // Knowledge snippets — keyword match against tender scope
+  const tenderKeywords = [
+    tenderRow?.name ?? "",
+    tenderRow?.client ?? "",
+    extraction?.scope_of_work ?? "",
+    ...(Array.isArray(extraction?.technical_requirements) ? extraction.technical_requirements : []),
+  ].join(" ").toLowerCase();
+
+  const knowledgeSnippets: string[] = [];
+  if (knowledgeDocs && tenderKeywords.length > 10) {
+    const words = tenderKeywords.split(/\W+/).filter((w) => w.length > 4);
+    type KDoc = { name: string; content_text: string | null };
+    const scored = (knowledgeDocs as KDoc[])
+      .map((d) => {
+        const text = (d.content_text ?? "").toLowerCase();
+        const hits = words.filter((w) => text.includes(w)).length;
+        return { name: d.name, text: d.content_text ?? "", score: hits };
+      })
+      .filter((d) => d.score > 0 && d.text.length > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+
+    for (const doc of scored) {
+      knowledgeSnippets.push(`[From: ${doc.name}]\n${doc.text.slice(0, 800)}`);
+    }
+  }
 
   let boqSummary: string | undefined;
   type BOQSection = { label: string; items: Array<{ description: string; qty: number; monthly_rate: number }> };
@@ -166,6 +198,8 @@ async function buildContext(tenderId: string): Promise<ExtractionContext> {
     deadline:                extraction?.deadline ?? tenderRow?.submission_deadline,
     contract_duration:       extraction?.contract_duration ?? tenderRow?.contract_duration,
     boq_summary:             boqSummary,
+    company_context:         Object.keys(companyContext).length > 0 ? companyContext : undefined,
+    knowledge_snippets:      knowledgeSnippets.length > 0 ? knowledgeSnippets : undefined,
   };
 }
 

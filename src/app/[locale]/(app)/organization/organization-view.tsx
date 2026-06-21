@@ -2,6 +2,121 @@
 
 import { useState, useEffect } from "react";
 
+// ── Company AI Context ─────────────────────────────────────────────────────
+
+interface CompanyContext {
+  company_name?: string;
+  tagline?: string;
+  founded_year?: string;
+  employees_count?: string;
+  headquarters?: string;
+  operating_regions?: string;
+  core_services?: string;
+  key_clients?: string;
+  past_projects?: string;
+  certifications?: string;
+  differentiators?: string;
+  financial_turnover?: string;
+  bid_win_rate?: string;
+}
+
+const CONTEXT_FIELDS: { key: keyof CompanyContext; label: string; placeholder: string; multiline?: boolean }[] = [
+  { key: "company_name",      label: "Company Name",             placeholder: "Etihad International Hospitality" },
+  { key: "tagline",           label: "Tagline / Positioning",    placeholder: "UAE's premier FM solutions provider" },
+  { key: "founded_year",      label: "Founded Year",             placeholder: "2005" },
+  { key: "employees_count",   label: "Employees Count",          placeholder: "1,200+" },
+  { key: "headquarters",      label: "HQ / Location",            placeholder: "Abu Dhabi, UAE" },
+  { key: "operating_regions", label: "Operating Regions",        placeholder: "UAE, KSA, Qatar, Bahrain" },
+  { key: "core_services",     label: "Core FM Services",         placeholder: "Soft services, hard services, hospitality FM, MME…", multiline: true },
+  { key: "certifications",    label: "Certifications & Accreditations", placeholder: "ISO 9001:2015, ISO 45001, ISSA, BIFM…", multiline: true },
+  { key: "key_clients",       label: "Key Clients (references)", placeholder: "ADNOC, Etihad Airways, Dubai Airports, DEWA…", multiline: true },
+  { key: "past_projects",     label: "Notable Past Projects",    placeholder: "Describe 3-5 relevant FM contracts with scope and value…", multiline: true },
+  { key: "differentiators",   label: "Key Differentiators",      placeholder: "24/7 command centre, IoT-enabled CAFM, bilingual team…", multiline: true },
+  { key: "financial_turnover",label: "Annual Turnover (AED)",    placeholder: "350,000,000" },
+  { key: "bid_win_rate",      label: "Bid Win Rate",             placeholder: "42%" },
+];
+
+function CompanyContextForm() {
+  const [ctx, setCtx]       = useState<CompanyContext>({});
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(false);
+
+  useEffect(() => {
+    fetch("/api/company-profile")
+      .then((r) => r.json())
+      .then((data) => { setCtx(data?.context ?? {}); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaved(false);
+    await fetch("/api/company-profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ context: ctx }),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  }
+
+  if (loading) return (
+    <div className="flex flex-col gap-3 p-5">
+      {[1,2,3].map((i) => <div key={i} className="h-12 animate-pulse rounded bg-surface-mid" />)}
+    </div>
+  );
+
+  return (
+    <div className="p-5">
+      <p className="text-[12px] text-text-secondary mb-5 leading-relaxed">
+        This information is injected into every AI agent when generating bid documents. The more detail you provide, the more accurate and personalised the AI output will be.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {CONTEXT_FIELDS.map(({ key, label, placeholder, multiline }) => (
+          <div key={key} className={multiline ? "sm:col-span-2" : ""}>
+            <label className="mb-1.5 block text-[12px] font-medium text-text-secondary">{label}</label>
+            {multiline ? (
+              <textarea
+                rows={3}
+                value={ctx[key] ?? ""}
+                onChange={(e) => setCtx((p) => ({ ...p, [key]: e.target.value }))}
+                placeholder={placeholder}
+                className="w-full rounded border border-border bg-surface px-3 py-2.5 text-[13px] text-text outline-none focus:border-primary resize-none"
+              />
+            ) : (
+              <input
+                type="text"
+                value={ctx[key] ?? ""}
+                onChange={(e) => setCtx((p) => ({ ...p, [key]: e.target.value }))}
+                placeholder={placeholder}
+                className="w-full rounded border border-border bg-surface px-3 py-2.5 text-[13px] text-text outline-none focus:border-primary"
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 flex items-center gap-3">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 rounded bg-primary px-5 py-2.5 text-[13px] font-semibold text-white hover:bg-primary-btn disabled:opacity-60 transition-colors"
+        >
+          {saving && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+          {saving ? "Saving…" : "Save Company Profile"}
+        </button>
+        {saved && (
+          <span className="flex items-center gap-1.5 text-[12px] text-success font-medium">
+            <span className="material-symbols-outlined text-[15px]">check_circle</span>
+            Saved — AI agents will use this data
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface Member {
   id: string;
   name: string;
@@ -41,6 +156,7 @@ export function OrganizationView() {
   const [inviteForm, setInviteForm] = useState({ name: "", email: "", role: BID_ROLES[0] });
   const [inviting, setInviting]   = useState(false);
   const [inviteSent, setInviteSent] = useState(false);
+  const [showContext, setShowContext] = useState(true);
 
   async function loadMembers() {
     setLoading(true);
@@ -184,6 +300,31 @@ export function OrganizationView() {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+
+        {/* Company AI Profile */}
+        <div className="mt-5 rounded-lg border border-[#8B3520]/30 bg-surface shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowContext((v) => !v)}
+            className="flex w-full items-center justify-between px-5 py-3.5 text-start hover:bg-surface-dim transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-[#8B3520]">smart_toy</span>
+              <div>
+                <p className="text-[13px] font-semibold text-text">Company AI Profile</p>
+                <p className="text-[11px] text-text-secondary">Injected into all 12 AI agents when generating bid documents</p>
+              </div>
+            </div>
+            <span className={`material-symbols-outlined text-[18px] text-text-muted transition-transform ${showContext ? "rotate-180" : ""}`}>
+              expand_more
+            </span>
+          </button>
+          {showContext && (
+            <>
+              <div className="border-t border-border-light" />
+              <CompanyContextForm />
+            </>
           )}
         </div>
 

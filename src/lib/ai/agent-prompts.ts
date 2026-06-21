@@ -1,18 +1,42 @@
-﻿import { complete } from "./provider";
+import { complete } from "./provider";
 
-const FM_SYSTEM = `You are a senior FM (Facility Management) bid director at Etihad International Hospitality (EIH), a leading UAE hospitality FM company.
+function buildSystem(companyCtx?: Record<string, string>): string {
+  const base = `You are a senior FM (Facility Management) bid director at Etihad International Hospitality (EIH), a leading UAE hospitality FM company.
 You produce professional, submission-ready bid content for FM tenders in the UAE/GCC market.
 
 FORMATTING RULES — follow these exactly:
-- Use ALL-CAPS lines for section headings (e.g. “COMPLIANCE MATRIX”, “STAFFING PLAN”)
+- Use ALL-CAPS lines for section headings (e.g. "COMPLIANCE MATRIX", "STAFFING PLAN")
 - Use proper markdown tables for all tabular data: | Column | Column | Column |
   Always include a separator row: |--------|--------|--------|
   Every table row must start and end with |
 - Use **bold** for emphasis within text
 - Use bullet lists with - for items
 - Be specific and quantified — include AED amounts, headcounts, percentages, timelines
-- Do NOT include meta-commentary, preambles, or “Here is the...” phrases
+- Do NOT include meta-commentary, preambles, or "Here is the..." phrases
 - Write as if this is the final submission document`;
+
+  if (!companyCtx || Object.keys(companyCtx).length === 0) return base;
+
+  const lines: string[] = [];
+  if (companyCtx.company_name)      lines.push(`Company: ${companyCtx.company_name}`);
+  if (companyCtx.tagline)           lines.push(`Positioning: ${companyCtx.tagline}`);
+  if (companyCtx.founded_year)      lines.push(`Founded: ${companyCtx.founded_year}`);
+  if (companyCtx.employees_count)   lines.push(`Employees: ${companyCtx.employees_count}`);
+  if (companyCtx.headquarters)      lines.push(`HQ: ${companyCtx.headquarters}`);
+  if (companyCtx.operating_regions) lines.push(`Regions: ${companyCtx.operating_regions}`);
+  if (companyCtx.core_services)     lines.push(`Core Services: ${companyCtx.core_services}`);
+  if (companyCtx.certifications)    lines.push(`Certifications: ${companyCtx.certifications}`);
+  if (companyCtx.key_clients)       lines.push(`Key Clients: ${companyCtx.key_clients}`);
+  if (companyCtx.past_projects)     lines.push(`Notable Projects: ${companyCtx.past_projects}`);
+  if (companyCtx.differentiators)   lines.push(`Differentiators: ${companyCtx.differentiators}`);
+  if (companyCtx.financial_turnover) lines.push(`Annual Turnover: AED ${companyCtx.financial_turnover}`);
+  if (companyCtx.bid_win_rate)      lines.push(`Bid Win Rate: ${companyCtx.bid_win_rate}`);
+
+  return `${base}
+
+OUR COMPANY PROFILE (use these real facts throughout):
+${lines.join("\n")}`;
+}
 
 export interface ExtractionContext {
   tender_name: string;
@@ -26,12 +50,19 @@ export interface ExtractionContext {
   deadline?: string;
   contract_duration?: string;
   boq_summary?: string;
+  company_context?: Record<string, string>;
+  knowledge_snippets?: string[];
 }
 
-// â”€â”€ Intelligence Briefing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function knowledgeBlock(ctx: ExtractionContext): string {
+  if (!ctx.knowledge_snippets?.length) return "";
+  return `\n\nRELEVANT PAST PROPOSALS & KNOWLEDGE (use these as reference):\n${ctx.knowledge_snippets.map((s, i) => `[${i + 1}] ${s}`).join("\n\n")}`;
+}
+
+// â"€â"€ Intelligence Briefing â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export async function generateIntelligence(ctx: ExtractionContext): Promise<string> {
   return complete({
-    system: FM_SYSTEM,
+    system: buildSystem(ctx.company_context),
     user: `Generate a Tender Intelligence Briefing for this FM opportunity.
 
 Tender: ${ctx.tender_name}
@@ -42,24 +73,24 @@ Evaluation Criteria: ${ctx.evaluation_criteria.join("; ")}
 Contract Duration: ${ctx.contract_duration ?? "As per tender"}
 
 Produce a strategic intelligence brief with:
-1. TENDER OVERVIEW â€” contract type, value estimate, strategic importance
-2. CLIENT INTELLIGENCE â€” client profile, procurement history, key decision-makers, known preferences
-3. COMPETITIVE LANDSCAPE â€” likely competitors, their strengths/weaknesses, our positioning
-4. MARKET CONTEXT â€” current UAE FM market conditions, pricing trends, labour costs
-5. STRATEGIC OPPORTUNITY ASSESSMENT â€” why we should/should not bid, our differentiators
-6. KEY SUCCESS FACTORS â€” top 5 factors that will win this tender
-7. INTELLIGENCE GAPS â€” information we still need before submitting
+1. TENDER OVERVIEW â€" contract type, value estimate, strategic importance
+2. CLIENT INTELLIGENCE â€" client profile, procurement history, key decision-makers, known preferences
+3. COMPETITIVE LANDSCAPE â€" likely competitors, their strengths/weaknesses, our positioning
+4. MARKET CONTEXT â€" current UAE FM market conditions, pricing trends, labour costs
+5. STRATEGIC OPPORTUNITY ASSESSMENT â€" why we should/should not bid, our differentiators
+6. KEY SUCCESS FACTORS â€" top 5 factors that will win this tender
+7. INTELLIGENCE GAPS â€" information we still need before submitting
 8. RECOMMENDED BID STRATEGY
 
-Be specific to UAE/GCC FM market dynamics and Etihad International Hospitality's positioning.`,
+Be specific to UAE/GCC FM market dynamics and Etihad International Hospitality's positioning.${knowledgeBlock(ctx)}`,
     maxTokens: 3000,
   });
 }
 
-// â”€â”€ Qualification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Qualification â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export async function generateQualification(ctx: ExtractionContext): Promise<string> {
   return complete({
-    system: FM_SYSTEM,
+    system: buildSystem(ctx.company_context),
     user: `Generate a Go/No-Go Qualification Assessment for this FM tender.
 
 Tender: ${ctx.tender_name}
@@ -75,15 +106,15 @@ Produce a professional qualification assessment with these sections:
 4. KEY RISKS & MITIGATIONS
 5. RECOMMENDED STRATEGY
 
-Format as professional business document text.`,
+Format as professional business document text.${knowledgeBlock(ctx)}`,
     maxTokens: 3000,
   });
 }
 
-// â”€â”€ Compliance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Compliance â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export async function generateCompliance(ctx: ExtractionContext): Promise<string> {
   return complete({
-    system: FM_SYSTEM,
+    system: buildSystem(ctx.company_context),
     user: `Generate a Compliance Matrix and Submission Checklist for this FM tender.
 
 Tender: ${ctx.tender_name}
@@ -113,10 +144,10 @@ List any documents that still need to be prepared, with owner and due date.`,
   });
 }
 
-// â”€â”€ Technical Proposal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Technical Proposal â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export async function generateTechnicalProposal(ctx: ExtractionContext): Promise<string> {
   return complete({
-    system: FM_SYSTEM,
+    system: buildSystem(ctx.company_context),
     user: `Generate a comprehensive Technical Proposal for this FM tender.
 
 Tender: ${ctx.tender_name}
@@ -139,15 +170,15 @@ Write a full Technical Proposal with these sections:
 9. TRANSITION & MOBILIZATION PLAN
 10. KEY PERFORMANCE INDICATORS
 
-This must be submission-ready, specific to FM, and tailored to the client's requirements.`,
+This must be submission-ready, specific to FM, and tailored to the client's requirements.${knowledgeBlock(ctx)}`,
     maxTokens: 4000,
   });
 }
 
-// â”€â”€ Commercial â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Commercial â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export async function generateCommercial(ctx: ExtractionContext): Promise<string> {
   return complete({
-    system: FM_SYSTEM,
+    system: buildSystem(ctx.company_context),
     user: `Generate a Commercial Proposal framework for this FM tender.
 
 Tender: ${ctx.tender_name}
@@ -165,15 +196,15 @@ Produce:
 5. PAYMENT TERMS RECOMMENDATION
 6. VALUE ENGINEERING OPPORTUNITIES
 
-Be specific with AED cost ranges based on UAE FM market rates.`,
+Be specific with AED cost ranges based on UAE FM market rates.${knowledgeBlock(ctx)}`,
     maxTokens: 3500,
   });
 }
 
-// â”€â”€ Manpower â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Manpower â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export async function generateManpower(ctx: ExtractionContext): Promise<string> {
   return complete({
-    system: FM_SYSTEM,
+    system: buildSystem(ctx.company_context),
     user: `Generate a Manpower Plan for this FM tender.
 
 Tender: ${ctx.tender_name}
@@ -221,10 +252,10 @@ Key initiatives for staff retention in UAE FM market.`,
   });
 }
 
-// â”€â”€ PPM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── PPM ──â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export async function generatePPM(ctx: ExtractionContext): Promise<string> {
   return complete({
-    system: FM_SYSTEM,
+    system: buildSystem(ctx.company_context),
     user: `Generate a Planned Preventive Maintenance (PPM) Schedule for this FM tender.
 
 Tender: ${ctx.tender_name}
@@ -271,10 +302,10 @@ How EIH tracks asset age, plans replacements, and advises clients on CapEx.`,
   });
 }
 
-// â”€â”€ Risk â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Risk â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export async function generateRisk(ctx: ExtractionContext): Promise<string> {
   return complete({
-    system: FM_SYSTEM,
+    system: buildSystem(ctx.company_context),
     user: `Generate a Risk Register for this FM tender.
 
 Tender: ${ctx.tender_name}
@@ -309,10 +340,10 @@ How risks will be tracked, reported, and escalated during contract delivery.`,
   });
 }
 
-// â”€â”€ HSE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ HSE â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export async function generateHSE(ctx: ExtractionContext): Promise<string> {
   return complete({
-    system: FM_SYSTEM,
+    system: buildSystem(ctx.company_context),
     user: `Generate an HSE Plan for this FM tender.
 
 Tender: ${ctx.tender_name}
@@ -336,10 +367,10 @@ Reference UAE Labour Law, OSHAD-SF, and relevant authority requirements.`,
   });
 }
 
-// â”€â”€ Presentation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Presentation â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export async function generatePresentation(ctx: ExtractionContext): Promise<string> {
   return complete({
-    system: FM_SYSTEM,
+    system: buildSystem(ctx.company_context),
     user: `Generate a PowerPoint Executive Presentation script for this FM tender.
 
 Tender: ${ctx.tender_name}
@@ -347,8 +378,8 @@ Client: ${ctx.client_name}
 Scope: ${ctx.scope_of_work}
 
 Write slide-by-slide content for a 15-slide executive presentation:
-SLIDE 1: Cover â€” Tender title, client, our company, date
-SLIDE 2: Executive Summary â€” Our value proposition in 3 bullet points
+SLIDE 1: Cover â€" Tender title, client, our company, date
+SLIDE 2: Executive Summary â€" Our value proposition in 3 bullet points
 SLIDE 3: Understanding the Client's Vision
 SLIDE 4: Our FM Service Approach
 SLIDE 5: Technical Solution Overview
@@ -360,7 +391,7 @@ SLIDE 10: Financial Strength & Pricing Approach
 SLIDE 11: Past Projects & References (UAE FM experience)
 SLIDE 12: Mobilization Timeline
 SLIDE 13: Risk Management
-SLIDE 14: Why Choose Us â€” Key Differentiators
+SLIDE 14: Why Choose Us â€" Key Differentiators
 SLIDE 15: Call to Action & Next Steps
 
 For each slide: TITLE | KEY MESSAGES (3-4 bullets) | SPEAKER NOTES`,
@@ -368,10 +399,10 @@ For each slide: TITLE | KEY MESSAGES (3-4 bullets) | SPEAKER NOTES`,
   });
 }
 
-// â”€â”€ SLA & KPI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ SLA & KPI â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export async function generateSLA(ctx: ExtractionContext): Promise<string> {
   return complete({
-    system: FM_SYSTEM,
+    system: buildSystem(ctx.company_context),
     user: `Generate a comprehensive SLA & KPI framework for this FM tender.
 
 Tender: ${ctx.tender_name}
@@ -413,7 +444,7 @@ REPORTING REQUIREMENTS
   });
 }
 
-// â”€â”€ Executive Review â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Executive Review â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export async function generateExecutiveReview(
   ctx: ExtractionContext,
   allOutputs: Record<string, string>,
@@ -423,7 +454,7 @@ export async function generateExecutiveReview(
     .join("\n\n");
 
   return complete({
-    system: FM_SYSTEM,
+    system: buildSystem(ctx.company_context),
     user: `Generate a Final Executive Review for this FM tender submission.
 
 Tender: ${ctx.tender_name}
