@@ -16,6 +16,11 @@ interface TenderFull {
   readiness_score?: number;
   win_probability?: number;
   executive_summary?: string;
+  outcome_reason?: string;
+  competitor_name?: string;
+  competitor_price?: number;
+  post_bid_notes?: string;
+  post_bid_analysis?: string;
 }
 
 interface Extraction {
@@ -135,6 +140,186 @@ function ScoreRing({ value, size = 88 }: { value: number; size?: number }) {
         <span className={`text-[22px] font-bold ${col.text}`}>{value}</span>
         <span className="text-[9px] text-text-muted uppercase tracking-wide">/ 100</span>
       </div>
+    </div>
+  );
+}
+
+// ── Bid Outcome Panel ─────────────────────────────────────────────────────────
+
+function BidOutcomePanel({ tender, tenderId }: { tender: TenderFull; tenderId: string }) {
+  const isWon  = tender.status === "won";
+  const isLost = tender.status === "lost";
+  const isSubmitted = tender.status === "submitted";
+
+  const [form, setForm] = useState({
+    outcome_reason:  tender.outcome_reason  ?? "",
+    competitor_name: tender.competitor_name ?? "",
+    competitor_price: tender.competitor_price ? String(tender.competitor_price) : "",
+    post_bid_notes:  tender.post_bid_notes  ?? "",
+  });
+  const [saving,    setSaving]    = useState(false);
+  const [saved,     setSaved]     = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysis,  setAnalysis]  = useState(tender.post_bid_analysis ?? "");
+  const [showAnalysis, setShowAnalysis] = useState(!!tender.post_bid_analysis);
+
+  async function handleSave() {
+    setSaving(true);
+    await fetch(`/api/tenders/${tenderId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        outcome_reason:   form.outcome_reason  || null,
+        competitor_name:  form.competitor_name || null,
+        competitor_price: form.competitor_price ? Number(form.competitor_price) : null,
+        post_bid_notes:   form.post_bid_notes  || null,
+      }),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  }
+
+  async function handleDebrief() {
+    setAnalyzing(true);
+    setShowAnalysis(false);
+    const res = await fetch(`/api/tenders/${tenderId}/post-bid`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        outcome: tender.status,
+        ...form,
+        competitor_price: form.competitor_price ? Number(form.competitor_price) : null,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.analysis) { setAnalysis(data.analysis); setShowAnalysis(true); }
+    setAnalyzing(false);
+  }
+
+  const accentColor = isWon ? "#16A34A" : isLost ? "#DC2626" : "#D97706";
+  const accentBg    = isWon ? "#f0fdf4" : isLost ? "#fef2f2" : "#fffbeb";
+  const icon        = isWon ? "emoji_events" : isLost ? "sentiment_dissatisfied" : "pending_actions";
+  const title       = isWon ? "Bid Won" : isLost ? "Bid Lost" : "Bid Submitted";
+
+  return (
+    <div className="rounded-xl border bg-surface shadow-sm overflow-hidden" style={{ borderColor: `${accentColor}40` }}>
+      {/* Header */}
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-border-light" style={{ background: `${accentBg}` }}>
+        <div className="flex h-9 w-9 items-center justify-center rounded-full" style={{ background: `${accentColor}20` }}>
+          <span className="material-symbols-outlined text-[20px]" style={{ color: accentColor }}>{icon}</span>
+        </div>
+        <div className="flex-1">
+          <p className="text-[14px] font-semibold text-text">{title}</p>
+          <p className="text-[11px] text-text-secondary">
+            {isWon ? "Capture why you won to replicate success on future bids." : isLost ? "Document what happened to improve future bids." : "Track the submission outcome once the client decides."}
+          </p>
+        </div>
+        {analysis && (
+          <button
+            onClick={() => setShowAnalysis((v) => !v)}
+            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-medium text-text-secondary hover:bg-surface-dim transition-colors"
+          >
+            <span className="material-symbols-outlined text-[14px]">psychology</span>
+            {showAnalysis ? "Hide" : "Show"} AI Debrief
+          </button>
+        )}
+      </div>
+
+      <div className="p-5 grid gap-4 sm:grid-cols-2">
+        {/* Outcome Reason */}
+        <div className="sm:col-span-2">
+          <label className="mb-1.5 block text-[12px] font-medium text-text-secondary">
+            {isWon ? "Why did we win?" : "Why did we lose? / What feedback did the client give?"}
+          </label>
+          <textarea
+            rows={2}
+            value={form.outcome_reason}
+            onChange={(e) => setForm((p) => ({ ...p, outcome_reason: e.target.value }))}
+            placeholder={isWon ? "e.g. Competitive price, strong technical methodology, key client relationship…" : "e.g. Price too high, competitor had more relevant experience, evaluation criteria weighting…"}
+            className="w-full rounded border border-border bg-surface px-3 py-2.5 text-[13px] text-text outline-none focus:border-primary resize-none"
+          />
+        </div>
+
+        {/* Competitor fields — only show for lost/submitted */}
+        {!isWon && (
+          <>
+            <div>
+              <label className="mb-1.5 block text-[12px] font-medium text-text-secondary">Winning Competitor</label>
+              <input
+                type="text"
+                value={form.competitor_name}
+                onChange={(e) => setForm((p) => ({ ...p, competitor_name: e.target.value }))}
+                placeholder="e.g. Emrill, Farnek, Transguard…"
+                className="w-full rounded border border-border bg-surface px-3 py-2.5 text-[13px] text-text outline-none focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[12px] font-medium text-text-secondary">Competitor Price (AED/yr)</label>
+              <input
+                type="number"
+                value={form.competitor_price}
+                onChange={(e) => setForm((p) => ({ ...p, competitor_price: e.target.value }))}
+                placeholder="e.g. 4500000"
+                className="w-full rounded border border-border bg-surface px-3 py-2.5 text-[13px] text-text outline-none focus:border-primary"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Notes */}
+        <div className={isWon ? "sm:col-span-2" : "sm:col-span-2"}>
+          <label className="mb-1.5 block text-[12px] font-medium text-text-secondary">Additional Notes</label>
+          <textarea
+            rows={2}
+            value={form.post_bid_notes}
+            onChange={(e) => setForm((p) => ({ ...p, post_bid_notes: e.target.value }))}
+            placeholder="Client relationship notes, lessons learned, internal feedback…"
+            className="w-full rounded border border-border bg-surface px-3 py-2.5 text-[13px] text-text outline-none focus:border-primary resize-none"
+          />
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-3 px-5 pb-5">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-primary-btn disabled:opacity-60 transition-colors"
+        >
+          {saving && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+          {saving ? "Saving…" : "Save Outcome"}
+        </button>
+        <button
+          onClick={handleDebrief}
+          disabled={analyzing}
+          className="flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-[12px] font-semibold text-text-secondary hover:bg-surface-dim disabled:opacity-60 transition-colors"
+          style={analyzing ? {} : { borderColor: `${accentColor}40` }}
+        >
+          {analyzing
+            ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            : <span className="material-symbols-outlined text-[14px]">psychology</span>}
+          {analyzing ? "Generating debrief…" : analysis ? "Re-generate AI Debrief" : "Generate AI Debrief"}
+        </button>
+        {saved && (
+          <span className="flex items-center gap-1.5 text-[12px] text-success font-medium">
+            <span className="material-symbols-outlined text-[14px]">check_circle</span> Saved
+          </span>
+        )}
+      </div>
+
+      {/* AI Debrief Output */}
+      {showAnalysis && analysis && (
+        <div className="border-t border-border-light">
+          <div className="flex items-center gap-2 px-5 py-3 bg-surface-dim border-b border-border-light">
+            <span className="material-symbols-outlined text-[16px] text-primary">psychology</span>
+            <p className="text-[12px] font-semibold text-text">AI Post-Bid Debrief</p>
+          </div>
+          <div className="px-5 py-4">
+            <pre className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-text font-sans">{analysis}</pre>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -577,6 +762,11 @@ export default function TenderOverviewPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* ── Bid Outcome Panel (shown for submitted / won / lost) ────────── */}
+      {tender && ["submitted", "won", "lost"].includes(tender.status) && (
+        <BidOutcomePanel tender={tender} tenderId={id} />
       )}
 
       {/* ── Empty state when no data yet ────────────────────────────────── */}

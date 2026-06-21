@@ -53,6 +53,8 @@ export default function DashboardPage() {
   const [showNotif, setShowNotif] = useState(false);
   const [userName, setUserName] = useState("");
   const [userInitials, setUserInitials] = useState("—");
+  const [aiSummary, setAiSummary] = useState("");
+  const [loadingSummary, setLoadingSummary] = useState(false);
 
   useEffect(() => {
     fetch("/api/tenders")
@@ -126,6 +128,19 @@ export default function DashboardPage() {
 
   // Recent tenders (sorted by created_at desc)
   const recent = [...tenders].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  // Won/Lost for outcome history
+  const wonTenders  = tenders.filter((t) => t.status === "won");
+  const lostTenders = tenders.filter((t) => t.status === "lost");
+
+  async function fetchAiSummary() {
+    setLoadingSummary(true);
+    setAiSummary("");
+    const res = await fetch("/api/reports/summary", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setAiSummary(data.summary ?? "Unable to generate summary.");
+    setLoadingSummary(false);
+  }
 
   const KPI = [
     { label: "Active Tenders",     value: String(active.length),                   sub: `${tenders.length} total across all stages`, icon: "folder_open",  color: "text-primary" },
@@ -375,6 +390,131 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ── Win / Loss Breakdown ───────────────────────────────────────────── */}
+        {(wonTenders.length > 0 || lostTenders.length > 0) && (
+          <div className="mt-5 rounded-lg border border-border bg-surface shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-light">
+              <h2 className="text-[14px] font-semibold text-text">Bid Outcomes</h2>
+              <div className="flex items-center gap-3 text-[12px] text-text-secondary">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-success" />
+                  {wonTenders.length} Won
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-danger" />
+                  {lostTenders.length} Lost
+                </span>
+              </div>
+            </div>
+
+            {/* Visual bar */}
+            {(wonTenders.length + lostTenders.length) > 0 && (
+              <div className="px-5 pt-4 pb-2">
+                <div className="flex h-3 w-full rounded-full overflow-hidden gap-0.5">
+                  {wonTenders.length > 0 && (
+                    <div
+                      className="h-full bg-success rounded-full transition-all"
+                      style={{ width: `${(wonTenders.length / (wonTenders.length + lostTenders.length)) * 100}%` }}
+                    />
+                  )}
+                  {lostTenders.length > 0 && (
+                    <div
+                      className="h-full bg-danger rounded-full transition-all"
+                      style={{ width: `${(lostTenders.length / (wonTenders.length + lostTenders.length)) * 100}%` }}
+                    />
+                  )}
+                </div>
+                <p className="mt-1.5 text-[11px] text-text-muted">
+                  {winRate != null ? `${winRate}% win rate from ${totalSubmitted} submitted tenders` : `${wonTenders.length + lostTenders.length} decided`}
+                </p>
+              </div>
+            )}
+
+            <div className="grid gap-0 sm:grid-cols-2 divide-x divide-border-light">
+              {/* Won */}
+              <div className="p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-success mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[14px]">emoji_events</span> Won
+                </p>
+                {wonTenders.length === 0 ? (
+                  <p className="text-[12px] text-text-muted">No wins yet</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {wonTenders.slice(0, 4).map((t) => (
+                      <button key={t.id} onClick={() => router.push(`/tenders/${t.id}`)} className="flex items-center justify-between text-start hover:bg-surface-dim rounded px-2 py-1.5 transition-colors group">
+                        <div className="min-w-0">
+                          <p className="text-[12.5px] font-medium text-text truncate group-hover:text-success transition-colors">{t.name}</p>
+                          {t.client && <p className="text-[10.5px] text-text-muted">{t.client}</p>}
+                        </div>
+                        {t.contract_value && (
+                          <span className="ml-3 text-[11px] font-semibold text-success shrink-0">{fmt(t.contract_value)}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Lost */}
+              <div className="p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-danger mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[14px]">sentiment_dissatisfied</span> Lost
+                </p>
+                {lostTenders.length === 0 ? (
+                  <p className="text-[12px] text-text-muted">No losses recorded</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {lostTenders.slice(0, 4).map((t) => (
+                      <button key={t.id} onClick={() => router.push(`/tenders/${t.id}`)} className="flex items-center justify-between text-start hover:bg-surface-dim rounded px-2 py-1.5 transition-colors group">
+                        <div className="min-w-0">
+                          <p className="text-[12.5px] font-medium text-text truncate group-hover:text-danger transition-colors">{t.name}</p>
+                          {t.client && <p className="text-[10.5px] text-text-muted">{t.client}</p>}
+                        </div>
+                        <span className="ml-3 material-symbols-outlined text-[14px] text-text-muted shrink-0">arrow_forward</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── AI Portfolio Intelligence ─────────────────────────────────────── */}
+        <div className="mt-5 rounded-lg border border-border bg-surface shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-light">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[16px] text-primary">smart_toy</span>
+              <h2 className="text-[14px] font-semibold text-text">AI Portfolio Intelligence</h2>
+            </div>
+            <button
+              onClick={fetchAiSummary}
+              disabled={loadingSummary || tenders.length === 0}
+              className="flex items-center gap-1.5 rounded border border-border px-3.5 py-2 text-[12px] font-medium text-text-secondary hover:bg-surface-dim disabled:opacity-50 transition-colors"
+            >
+              {loadingSummary
+                ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                : <span className="material-symbols-outlined text-[14px]">refresh</span>}
+              {loadingSummary ? "Analysing…" : aiSummary ? "Refresh" : "Generate Report"}
+            </button>
+          </div>
+          {aiSummary ? (
+            <div className="p-5">
+              <p className="text-[13px] leading-[1.75] text-text whitespace-pre-wrap">{aiSummary}</p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 p-5">
+              <span className="material-symbols-outlined text-[32px] text-text-muted shrink-0">insights</span>
+              <div>
+                <p className="text-[13px] font-medium text-text">Get a strategic overview of your bid portfolio</p>
+                <p className="text-[12px] text-text-secondary mt-0.5">
+                  AI analyses all active tenders, identifies risks, highlights opportunities, and gives 30-day recommendations.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Quick actions / New tender CTA */}
