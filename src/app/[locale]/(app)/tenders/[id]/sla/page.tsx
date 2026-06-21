@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { parseAllTables, extractNumber } from "@/lib/parse-agent-table";
+import { textToHtml } from "@/lib/utils/text-to-html";
 
 interface SLARow {
   id: string;
@@ -97,9 +98,10 @@ export default function SlaPage() {
     }).catch(console.error);
   }, [id]);
 
-  const tables = useMemo(() => parseAllTables(content), [content]);
-  const slaRows = useMemo(() => buildSLARows(tables), [tables]);
-  const kpiRows = useMemo(() => buildKPIRows(tables), [tables]);
+  const tables   = useMemo(() => parseAllTables(content), [content]);
+  const slaRows  = useMemo(() => buildSLARows(tables), [tables]);
+  const kpiRows  = useMemo(() => buildKPIRows(tables), [tables]);
+  const html     = useMemo(() => content ? textToHtml(content) : "", [content]);
 
   const overallScore = useMemo(() => extractNumber(content, [
     /overall sla score[:\s]+([\d.]+)/i,
@@ -352,6 +354,18 @@ export default function SlaPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* AI Full Content — shown when table parsing found no rows */}
+      {html && slaRows.length === 0 && kpiRows.length === 0 && (
+        <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-border-light px-5 py-3.5">
+            <span className="material-symbols-outlined text-[16px] text-primary">smart_toy</span>
+            <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">AI SLA & KPI Analysis</p>
+            <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary uppercase tracking-wide">AI Generated</span>
+          </div>
+          <div className="px-5 py-4 text-[13px] leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: html }} />
         </div>
       )}
     </div>

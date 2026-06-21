@@ -2,32 +2,44 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { parseAllTables, extractNumber } from "@/lib/parse-agent-table";
+import { parseAllTables } from "@/lib/parse-agent-table";
+import { textToHtml } from "@/lib/utils/text-to-html";
 
 interface CompetitorRow { name: string; market: string; winRate: string; level: string }
 
 function extractScore(content: string): number {
-  return extractNumber(content, [
+  const patterns = [
+    /qualification score[:\s]+(\d+)\s*\/\s*100/i,
+    /overall score[:\s]+(\d+)/i,
     /score[:\s]+(\d+)\s*\/\s*100/i,
-    /qualification score[:\s]+(\d+)/i,
     /(\d+)\s*\/\s*100/,
-  ]) ?? 0;
+  ];
+  for (const p of patterns) {
+    const m = content.match(p);
+    if (m) { const n = parseInt(m[1]); if (n > 0 && n <= 100) return n; }
+  }
+  return 0;
 }
 
 function extractPct(content: string, keywords: string[]): number | null {
   for (const kw of keywords) {
     const r = new RegExp(`${kw}[^\\d]*(\\d+)\\s*%`, "i");
     const m = content.match(r);
-    if (m) return parseInt(m[1]);
+    if (m) { const n = parseInt(m[1]); if (n > 0 && n <= 100) return n; }
   }
   return null;
 }
 
 function extractGoDecision(content: string): "go" | "no-go" | "conditional" | null {
+  if (!content.trim()) return null;
   const lower = content.toLowerCase();
-  if (lower.includes("no-go") || lower.includes("no go")) return "no-go";
-  if (lower.includes("conditional go") || lower.includes("conditional")) return "conditional";
-  if (lower.includes("go decision") || lower.includes("recommended: go") || lower.includes("approve go")) return "go";
+  // Look for explicit go/no-go decision markers
+  if (/\bno[- ]go\b.*decision/i.test(content) || /decision.*\bno[- ]go\b/i.test(content)) return "no-go";
+  if (/conditional\s*go/i.test(content)) return "conditional";
+  if (/\bgo\b.*decision|decision.*\bgo\b|recommend.*\bgo\b|approve.*\bgo\b/i.test(content)) return "go";
+  // Secondary: look for standalone keywords with surrounding context
+  if (/recommendation[:\s]+(no[- ]go|do not bid)/i.test(content)) return "no-go";
+  if (/recommendation[:\s]+(go|proceed|bid)/i.test(content)) return "go";
   return null;
 }
 
@@ -35,8 +47,8 @@ function buildCompetitors(tables: Record<string, string>[][]): CompetitorRow[] {
   for (const table of tables) {
     if (table.length === 0) continue;
     const keys = Object.keys(table[0]);
-    if (keys.some((k) => k.includes("competitor") || k.includes("company") || k.includes("name"))) {
-      return table.map((row) => ({
+    if (keys.some((k) => /competitor|company|name/i.test(k))) {
+      return table.slice(0, 8).map((row) => ({
         name: row[keys[0]] ?? "—",
         market: row[keys[1]] ?? "—",
         winRate: row[keys[2]] ?? "—",
@@ -60,26 +72,42 @@ export default function QualificationPage() {
   const [content, setContent] = useState("");
   const [agentStatus, setAgentStatus] = useState("waiting");
   const [approved, setApproved] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/tenders/${id}/agents`).then((r) => r.json()).then((agents) => {
-      const run = Array.isArray(agents) && agents.find((a: { agent_type: string }) => a.agent_type === "qualification");
-      if (run) { setAgentStatus(run.status); setContent(run.output_content ?? ""); }
-    }).catch(console.error);
+    fetch(`/api/tenders/${id}/agents`)
+      .then((r) => r.json())
+      .then((agents) => {
+        if (Array.isArray(agents)) {
+          const run = agents.find((a: { agent_type: string }) => a.agent_type === "qualification");
+          if (run) { setAgentStatus(run.status); setContent(run.output_content ?? ""); }
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, [id]);
 
-  const score = useMemo(() => extractScore(content), [content]);
-  const capability = useMemo(() => extractPct(content, ["capability", "staff", "personnel"]), [content]);
-  const financial = useMemo(() => extractPct(content, ["financial", "budget", "liquidity"]), [content]);
-  const strategic = useMemo(() => extractPct(content, ["strategic", "alignment", "market"]), [content]);
+  const score      = useMemo(() => extractScore(content), [content]);
+  const capability = useMemo(() => extractPct(content, ["capability", "technical", "staff"]), [content]);
+  const financial  = useMemo(() => extractPct(content, ["financial", "budget", "liquidity"]), [content]);
+  const strategic  = useMemo(() => extractPct(content, ["strategic", "alignment", "market"]), [content]);
   const goDecision = useMemo(() => extractGoDecision(content), [content]);
-  const tables = useMemo(() => parseAllTables(content), [content]);
+  const tables     = useMemo(() => parseAllTables(content), [content]);
   const competitors = useMemo(() => buildCompetitors(tables), [tables]);
+  const html       = useMemo(() => content ? textToHtml(content) : "", [content]);
 
   const scoreColor = score >= 75 ? "text-success" : score >= 50 ? "text-warning" : score > 0 ? "text-danger" : "text-text-muted";
-  const scoreRing = score >= 75 ? "#10B981" : score >= 50 ? "#F59E0B" : score > 0 ? "#EF4444" : "#94A3B8";
+  const scoreRing  = score >= 75 ? "#10B981" : score >= 50 ? "#F59E0B" : score > 0 ? "#EF4444" : "#94A3B8";
 
-  if (agentStatus !== "completed" && !content) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <span className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!content && agentStatus !== "completed") {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         <span className="material-symbols-outlined text-[44px] text-text-muted">verified</span>
@@ -91,7 +119,7 @@ export default function QualificationPage() {
     );
   }
 
-  const r = 36;
+  const r    = 36;
   const circ = 2 * Math.PI * r;
   const dash = (score / 100) * circ;
 
@@ -116,10 +144,14 @@ export default function QualificationPage() {
             </div>
           </div>
           <p className={`text-[13px] font-semibold ${scoreColor}`}>
-            {score >= 75 ? "STRONG GO" : score >= 50 ? "CONDITIONAL" : score > 0 ? "REVIEW" : "Pending"}
+            {score >= 75 ? "STRONG GO" : score >= 50 ? "CONDITIONAL" : score > 0 ? "REVIEW" : agentStatus === "completed" ? "See Analysis" : "Pending"}
           </p>
           <p className="text-[11px] text-text-muted text-center">
-            {score >= 75 ? "Qualifies for this tender" : score >= 50 ? "Proceed with caution" : score > 0 ? "Address gaps before bidding" : "Run AI agents to assess"}
+            {score >= 75 ? "Qualifies for this tender"
+              : score >= 50 ? "Proceed with caution"
+              : score > 0 ? "Address gaps before bidding"
+              : agentStatus === "completed" ? "See AI analysis below"
+              : "Run AI agents to assess"}
           </p>
         </div>
 
@@ -129,7 +161,7 @@ export default function QualificationPage() {
             <span className="material-symbols-outlined text-[18px] text-primary">engineering</span>
             <p className="text-[12px] font-semibold text-text">Capability Match</p>
           </div>
-          <p className={`text-[28px] font-bold ${capability ? (capability >= 80 ? "text-success" : "text-warning") : "text-text-muted"}`}>
+          <p className={`text-[28px] font-bold ${capability != null ? (capability >= 80 ? "text-success" : "text-warning") : "text-text-muted"}`}>
             {capability != null ? `${capability}%` : "—"}
           </p>
           <p className="text-[11px] text-text-muted mt-1">Technical & staff qualifications alignment</p>
@@ -146,7 +178,7 @@ export default function QualificationPage() {
             <span className="material-symbols-outlined text-[18px] text-primary">account_balance</span>
             <p className="text-[12px] font-semibold text-text">Financial Feasibility</p>
           </div>
-          <p className={`text-[28px] font-bold ${financial ? (financial >= 70 ? "text-success" : "text-warning") : "text-text-muted"}`}>
+          <p className={`text-[28px] font-bold ${financial != null ? (financial >= 70 ? "text-success" : "text-warning") : "text-text-muted"}`}>
             {financial != null ? `${financial}%` : "—"}
           </p>
           <p className="text-[11px] text-text-muted mt-1">Budget, bonding & liquidity requirements</p>
@@ -163,7 +195,7 @@ export default function QualificationPage() {
             <span className="material-symbols-outlined text-[18px] text-primary">target</span>
             <p className="text-[12px] font-semibold text-text">Strategic Alignment</p>
           </div>
-          <p className={`text-[28px] font-bold ${strategic ? (strategic >= 70 ? "text-success" : "text-warning") : "text-text-muted"}`}>
+          <p className={`text-[28px] font-bold ${strategic != null ? (strategic >= 70 ? "text-success" : "text-warning") : "text-text-muted"}`}>
             {strategic != null ? `${strategic}%` : "—"}
           </p>
           <p className="text-[11px] text-text-muted mt-1">Market position & growth objectives</p>
@@ -185,12 +217,14 @@ export default function QualificationPage() {
             <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">Competitor Analysis Matrix</p>
           </div>
           {competitors.length === 0 ? (
-            <p className="p-6 text-[12px] text-text-muted text-center">No competitor data extracted — the AI agent will populate this when complete.</p>
+            <p className="p-6 text-[12px] text-text-muted text-center">
+              {agentStatus === "completed" ? "No competitor table found in AI output — see full analysis below." : "No competitor data extracted — the AI agent will populate this when complete."}
+            </p>
           ) : (
             <table className="w-full text-[13px]">
               <thead>
                 <tr className="border-b border-border-light bg-surface-dim">
-                  {["Competitor Name", "Market Share", "Win Rate", "Aggression Level"].map((h) => (
+                  {["Competitor Name","Market Share","Win Rate","Aggression Level"].map((h) => (
                     <th key={h} className="px-4 py-2.5 text-start text-[10.5px] font-semibold uppercase tracking-wide text-text-secondary">{h}</th>
                   ))}
                 </tr>
@@ -236,14 +270,14 @@ export default function QualificationPage() {
                 </p>
                 <p className="text-[11.5px] text-text-secondary leading-relaxed">
                   {goDecision === "go" ? "AI recommends pursuing this tender based on qualification score and market analysis."
-                  : goDecision === "no-go" ? "AI does not recommend bidding on this tender at this time."
-                  : "Proceed with conditions — address identified gaps before submitting."}
+                    : goDecision === "no-go" ? "AI does not recommend bidding on this tender at this time."
+                    : "Proceed with conditions — address identified gaps before submitting."}
                 </p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2 rounded-lg border border-border p-4 text-center text-text-muted">
-                <span className="material-symbols-outlined text-[28px]">pending</span>
-                <p className="text-[12px]">AI decision pending — run agents to get Go/No-Go recommendation.</p>
+                <span className="material-symbols-outlined text-[28px]">{agentStatus === "completed" ? "smart_toy" : "pending"}</span>
+                <p className="text-[12px]">{agentStatus === "completed" ? "See full AI analysis below for recommendation." : "AI decision pending — run agents to get Go/No-Go recommendation."}</p>
               </div>
             )}
 
@@ -277,18 +311,19 @@ export default function QualificationPage() {
         </div>
       </div>
 
-      {/* AI Raw Content */}
-      {content && (
-        <details className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
-          <summary className="flex cursor-pointer items-center gap-2 px-5 py-3 text-[12px] font-medium text-text-secondary hover:bg-surface-dim transition-colors list-none">
-            <span className="material-symbols-outlined text-[16px]">smart_toy</span>
-            View Full AI Analysis
-            <span className="material-symbols-outlined text-[14px] ml-auto">expand_more</span>
-          </summary>
-          <div className="border-t border-border-light px-5 py-4 text-[13px] leading-relaxed text-text whitespace-pre-wrap font-mono">
-            {content}
+      {/* AI Full Analysis — shown prominently when agents have run */}
+      {html && (
+        <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-border-light px-5 py-3.5">
+            <span className="material-symbols-outlined text-[16px] text-primary">smart_toy</span>
+            <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">AI Qualification Analysis</p>
+            <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary uppercase tracking-wide">AI Generated</span>
           </div>
-        </details>
+          <div
+            className="px-5 py-4 text-[13px] leading-relaxed prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        </div>
       )}
     </div>
   );
