@@ -3,8 +3,7 @@ import { db } from "@/lib/supabase/db";
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
   Table, TableRow, TableCell, WidthType, BorderStyle,
-  AlignmentType, ShadingType, PageBreak, Footer,
-  PageNumberElement,
+  AlignmentType, ShadingType, PageBreak, Footer, PageNumber,
 } from "docx";
 
 export const maxDuration = 60;
@@ -190,7 +189,7 @@ function eihFooter(tenderName: string) {
         alignment: AlignmentType.CENTER,
         children: [
           new TextRun({ text: `${tenderName}  ·  Page `, size: 16, color: "666666", font: "Calibri" }),
-          new PageNumberElement(),
+          new TextRun({ children: [PageNumber.CURRENT], size: 16, color: "666666", font: "Calibri" }),
         ],
       }),
     ],
