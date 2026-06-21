@@ -10,6 +10,8 @@ interface Doc {
   title: string;
   type: string;
   review_status: string;
+  agent_type?: string;
+  is_virtual?: boolean;
   current_version_id?: string;
   document_versions?: Array<{ id: string; content_html?: string; version_no: number }>;
 }
@@ -96,6 +98,7 @@ export default function DocumentsPage() {
   const [docs, setDocs]             = useState<Doc[]>([]);
   const [sourceFiles, setFiles]     = useState<SourceFile[]>([]);
   const [openId, setOpenId]         = useState<string | null>(null);
+  const [materializing, setMaterializing] = useState<string | null>(null); // agent_type being materialized
   const [expandedFileId, setExpanded] = useState<string | null>(null);
   const [loading, setLoading]       = useState(true);
   const [running, setRunning]       = useState(false);
@@ -207,18 +210,51 @@ export default function DocumentsPage() {
     }
   }
 
-  const openDoc = docs.find((d) => d.id === openId);
-  const openVersion = openDoc?.document_versions?.find((v) => v.id === openDoc.current_version_id)
-    ?? openDoc?.document_versions?.[0];
+  // Materialize a virtual doc (agent_runs → formal documents record) then open it
+  async function openDoc(doc: Doc) {
+    if (!doc.is_virtual) { setOpenId(doc.id); return; }
+    const agentType = doc.agent_type ?? doc.id.replace("agent:", "");
+    setMaterializing(agentType);
+    try {
+      const res = await fetch("/api/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tender_id: id, agent_type: agentType }),
+      });
+      if (res.ok) {
+        const formal = await res.json();
+        await loadDocs(); // reload to get the new formal doc in state
+        setOpenId(formal.id);
+      }
+    } finally {
+      setMaterializing(null);
+    }
+  }
+
+  const openDocData = docs.find((d) => d.id === openId);
+  const openVersion = openDocData?.document_versions?.find((v) => v.id === openDocData.current_version_id)
+    ?? openDocData?.document_versions?.[0];
 
   const failedCount = sourceFiles.filter((f) => f.extraction_status === "failed").length;
 
-  if (openId && openDoc) {
+  if (openId && openDocData) {
     return (
       <div className="flex flex-col gap-4">
-        <button onClick={() => setOpenId(null)} className="text-[13px] text-text-secondary hover:text-text transition-colors">← Back to documents</button>
-        <h2 className="text-[22px] font-bold text-text">{openDoc.title}</h2>
-        <DocumentEditor documentId={openDoc.id} initialHtml={openVersion?.content_html ?? ""} reviewStatus={openDoc.review_status} />
+        <div className="flex items-center gap-4">
+          <button onClick={() => setOpenId(null)} className="flex items-center gap-1.5 text-[13px] text-text-secondary hover:text-text transition-colors">
+            <span className="material-symbols-outlined text-[15px]">arrow_back</span>
+            Back to documents
+          </button>
+          <span className={`rounded px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${REVIEW_COLORS[openDocData.review_status] ?? "text-text-muted bg-surface-dim"}`}>
+            {openDocData.review_status.replace(/_/g, " ")}
+          </span>
+        </div>
+        <h2 className="text-[22px] font-bold text-text">{openDocData.title}</h2>
+        <DocumentEditor
+          documentId={openDocData.id}
+          initialHtml={openVersion?.content_html ?? ""}
+          reviewStatus={openDocData.review_status}
+        />
       </div>
     );
   }
@@ -478,28 +514,46 @@ export default function DocumentsPage() {
         ) : docs.length > 0 ? (
           <AnimatePresence>
             <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.04 } } }} className="flex flex-col gap-2">
-              {docs.map((doc) => (
-                <motion.button
-                  key={doc.id}
-                  variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
-                  onClick={() => setOpenId(doc.id)}
-                  className="flex items-center justify-between rounded-lg border border-border bg-surface px-5 py-3.5 text-start hover:bg-surface-dim transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-[18px] text-primary">description</span>
-                    <div>
-                      <p className="text-[13px] font-medium text-text">{doc.title}</p>
-                      <p className="mt-0.5 text-[11px] capitalize text-text-secondary">{doc.type.replace(/_/g, " ")}</p>
+              {docs.map((doc) => {
+                const isMat = materializing === (doc.agent_type ?? doc.id.replace("agent:", ""));
+                return (
+                  <motion.button
+                    key={doc.id}
+                    variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
+                    onClick={() => openDoc(doc)}
+                    disabled={isMat}
+                    className="flex items-center justify-between rounded-lg border border-border bg-surface px-5 py-3.5 text-start hover:bg-surface-dim transition-colors disabled:opacity-60"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={`material-symbols-outlined text-[18px] ${doc.is_virtual ? "text-ai" : "text-primary"}`}>
+                        {doc.is_virtual ? "auto_awesome" : "description"}
+                      </span>
+                      <div>
+                        <p className="text-[13px] font-medium text-text">{doc.title}</p>
+                        <p className="mt-0.5 text-[11px] capitalize text-text-secondary">
+                          {doc.type.replace(/_/g, " ")}
+                          {doc.is_virtual && <span className="ml-2 text-ai/70">· AI generated</span>}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${REVIEW_COLORS[doc.review_status] ?? "text-text-muted bg-surface-dim"}`}>
-                      {doc.review_status.replace(/_/g, " ")}
-                    </span>
-                    <span className="text-[12px] text-text-muted">Open →</span>
-                  </div>
-                </motion.button>
-              ))}
+                    <div className="flex items-center gap-3">
+                      <span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${REVIEW_COLORS[doc.review_status] ?? "text-text-muted bg-surface-dim"}`}>
+                        {doc.review_status.replace(/_/g, " ")}
+                      </span>
+                      {isMat ? (
+                        <span className="flex items-center gap-1.5 text-[12px] text-text-muted">
+                          <span className="h-3 w-3 animate-spin rounded-full border-2 border-text-muted border-t-transparent" />
+                          Loading…
+                        </span>
+                      ) : (
+                        <span className="text-[12px] text-primary font-medium flex items-center gap-0.5">
+                          Review &amp; Edit <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+                        </span>
+                      )}
+                    </div>
+                  </motion.button>
+                );
+              })}
             </motion.div>
           </AnimatePresence>
         ) : (

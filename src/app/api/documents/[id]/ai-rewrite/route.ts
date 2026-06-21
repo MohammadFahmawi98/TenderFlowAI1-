@@ -5,8 +5,12 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  await params; // id available if needed for context
-  const { text, action } = await req.json() as { text: string; action: string };
+  await params;
+  const { text, action, instruction } = await req.json() as {
+    text: string;
+    action: string;
+    instruction?: string;
+  };
 
   const actionMap: Record<string, string> = {
     rewrite:         "Rewrite this text to be clearer and more professional while preserving the meaning.",
@@ -15,15 +19,16 @@ export async function POST(
     professional:    "Rewrite this text to be more professional and executive-appropriate.",
     technical:       "Rewrite this text to be more technically detailed and precise.",
     translate_ar:    "Translate this text to Arabic (formal business Arabic).",
+    custom:          instruction ?? "Improve this text.",
   };
 
-  const instruction = actionMap[action] ?? actionMap.rewrite;
+  const inst = actionMap[action] ?? actionMap.rewrite;
 
   const result = await complete({
-    system: "You are an expert FM bid writer for Etihad International Hospitality. Return ONLY the rewritten text — no commentary, no quotation marks.",
-    user: `${instruction}\n\nText to process:\n${text}`,
+    system: "You are an expert FM bid writer for Etihad International Hospitality. Return ONLY the rewritten text — no commentary, no quotation marks, no preamble. Preserve all section headings and structure where possible.",
+    user: `${inst}\n\nText to process:\n${text}`,
     temperature: 0.3,
-    maxTokens: 1500,
+    maxTokens: 2000,
   });
 
   return NextResponse.json({ result });

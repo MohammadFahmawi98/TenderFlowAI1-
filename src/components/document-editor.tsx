@@ -24,6 +24,16 @@ const AI_ACTIONS = [
   { key: "translate_ar", label: "Translate to Arabic" },
 ];
 
+// Strip HTML tags → plain text for AI processing
+function htmlToPlain(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/?(h[1-6]|p|li|tr|td|th|ul|ol|div|blockquote)[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ")
+    .replace(/\n{3,}/g, "\n\n").trim();
+}
+
 const REVIEW_STATUS_LABELS: Record<string, { label: string; color: string }> = {
   draft:             { label: "Draft",             color: "text-text-secondary bg-white/5" },
   ai_generated:      { label: "AI Generated",      color: "text-[#00E5FF] bg-[#00E5FF]/10" },
@@ -44,6 +54,8 @@ export function DocumentEditor({
   const [status, setStatus] = useState(reviewStatus);
   const [showAiMenu, setShowAiMenu] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
+  const [showInstructPanel, setShowInstructPanel] = useState(false);
+  const [aiInstruct, setAiInstruct] = useState("");
 
   const editor = useEditor({
     extensions: [
@@ -79,11 +91,11 @@ export function DocumentEditor({
     }
   }, [editor, documentId, status, onSave]);
 
-  const runAiAction = useCallback(async (action: string) => {
+  const runAiAction = useCallback(async (action: string, customInstruction?: string) => {
     if (!editor) return;
     const { from, to, empty } = editor.state.selection;
     const selectedText = empty
-      ? editor.getText()
+      ? htmlToPlain(editor.getHTML())
       : editor.state.doc.textBetween(from, to);
 
     if (!selectedText.trim()) return;
@@ -93,12 +105,14 @@ export function DocumentEditor({
       const res = await fetch(`/api/documents/${documentId}/ai-rewrite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: selectedText, action }),
+        body: JSON.stringify({ text: selectedText, action, instruction: customInstruction }),
       });
       const { result } = await res.json();
       if (result) {
         if (empty) {
-          editor.commands.setContent(`<p>${result.replace(/\n/g, "</p><p>")}</p>`);
+          // Replace whole document
+          const lines = result.split("\n").filter((l: string) => l.trim());
+          editor.commands.setContent(lines.map((l: string) => `<p>${l}</p>`).join(""));
         } else {
           editor.commands.insertContentAt({ from, to }, result);
         }
@@ -107,6 +121,13 @@ export function DocumentEditor({
       setAiLoading(false);
     }
   }, [editor, documentId]);
+
+  const applyInstruction = useCallback(async () => {
+    if (!aiInstruct.trim() || !editor) return;
+    await runAiAction("custom", aiInstruct);
+    setAiInstruct("");
+    setShowInstructPanel(false);
+  }, [aiInstruct, editor, runAiAction]);
 
   const statusInfo = REVIEW_STATUS_LABELS[status] ?? REVIEW_STATUS_LABELS.draft;
 
@@ -211,6 +232,16 @@ export function DocumentEditor({
           ))}
         </select>
 
+        {/* AI instruction toggle */}
+        <button
+          onClick={() => setShowInstructPanel((v) => !v)}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium border transition-colors ${showInstructPanel ? "border-ai/50 bg-ai/15 text-ai" : "border-border text-text-secondary hover:text-text hover:bg-white/5"}`}
+          title="Tell AI what to change"
+        >
+          <span className="material-symbols-outlined text-[14px]">edit_note</span>
+          AI Edit
+        </button>
+
         {/* Save */}
         <button
           onClick={save}
@@ -220,6 +251,47 @@ export function DocumentEditor({
           {saving ? "Saving…" : savedMsg || "Save"}
         </button>
       </div>
+
+      {/* AI Instruction panel */}
+      <AnimatePresence>
+        {showInstructPanel && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden border-b border-border"
+          >
+            <div className="flex items-center gap-3 bg-ai/5 px-4 py-3">
+              <span className="material-symbols-outlined text-[18px] text-ai shrink-0">auto_fix_high</span>
+              <input
+                value={aiInstruct}
+                onChange={(e) => setAiInstruct(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && applyInstruction()}
+                placeholder='e.g. "Add a pricing breakdown table" or "Make the compliance section more detailed"'
+                className="flex-1 bg-transparent text-[13px] text-text placeholder:text-text-muted outline-none"
+                autoFocus
+              />
+              <button
+                onClick={applyInstruction}
+                disabled={!aiInstruct.trim() || aiLoading}
+                className="shrink-0 rounded-lg bg-ai px-4 py-1.5 text-[12px] font-semibold text-background hover:opacity-90 disabled:opacity-40 transition-opacity"
+              >
+                {aiLoading ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                    Applying…
+                  </span>
+                ) : "Apply"}
+              </button>
+              <button onClick={() => setShowInstructPanel(false)} className="text-text-muted hover:text-text transition-colors">
+                <span className="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+            <p className="px-10 pb-2 text-[10.5px] text-text-muted">AI will apply your instruction to the entire document. Select text first to edit only that section.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Editor body */}
       <div className="px-8 py-6">
