@@ -7,17 +7,18 @@ interface AgentRun { agent_type: string; status: string; output_content?: string
 interface Tender   { name?: string; readiness_score?: number; win_probability?: number; client?: string; submission_deadline?: string; }
 
 const EXPORT_SECTIONS = [
-  { key: "commercial",    label: "Commercial Proposal",    desc: "Cover page · BOQ · Staff rates · Consumables · Exclusions", icon: "receipt_long",      primary: true },
-  { key: "technical",     label: "Technical Proposal",     desc: "Methodology · Systems · Implementation plan",               icon: "engineering",       primary: false },
-  { key: "qualification", label: "Qualification Assessment", desc: "Company profile · Certifications · Track record",        icon: "verified",          primary: false },
-  { key: "compliance",    label: "Compliance Matrix",      desc: "Requirement-by-requirement compliance table",               icon: "fact_check",        primary: false },
-  { key: "manpower",      label: "Manpower Plan",          desc: "Organisation chart · Roles · Deployment schedule",         icon: "groups",            primary: false },
-  { key: "ppm",           label: "PPM Schedule",           desc: "Planned preventive maintenance programme",                  icon: "build_circle",      primary: false },
-  { key: "risk",          label: "Risk Register",          desc: "Risk matrix · Mitigation plans · Contingencies",            icon: "warning_amber",     primary: false },
-  { key: "hse",           label: "HSE Plan",               desc: "Health, Safety & Environment management plan",              icon: "health_and_safety", primary: false },
-  { key: "sla",           label: "SLA & KPI Framework",   desc: "Service levels · KPI definitions · Penalty regime",         icon: "speed",             primary: false },
-  { key: "presentation",  label: "Executive Presentation", desc: "C-suite summary for client meetings",                      icon: "slideshow",         primary: false },
-  { key: "all",           label: "Full Bid Package",       desc: "All sections combined in a single DOCX",                   icon: "folder_zip",        primary: false },
+  { key: "commercial",    label: "Commercial Proposal",        desc: "Cover page · BOQ · Staff rates · Consumables · Exclusions",  icon: "receipt_long",      primary: true,  ext: "docx" },
+  { key: "excel_boq",    label: "BOQ / Estimation (Excel)",   desc: "Multi-sheet workbook: BOQ, Staff Rates, Summary with totals", icon: "table_chart",       primary: true,  ext: "xlsx" },
+  { key: "zip",           label: "Full Bid Package (ZIP)",    desc: "Each section as a separate DOCX + Excel BOQ in one ZIP",     icon: "folder_zip",        primary: true,  ext: "zip"  },
+  { key: "technical",     label: "Technical Proposal",         desc: "Methodology · Systems · Implementation plan",                icon: "engineering",       primary: false, ext: "docx" },
+  { key: "qualification", label: "Qualification Assessment",   desc: "Company profile · Certifications · Track record",           icon: "verified",          primary: false, ext: "docx" },
+  { key: "compliance",    label: "Compliance Matrix",          desc: "Requirement-by-requirement compliance table",                icon: "fact_check",        primary: false, ext: "docx" },
+  { key: "manpower",      label: "Manpower Plan",              desc: "Organisation chart · Roles · Deployment schedule",          icon: "groups",            primary: false, ext: "docx" },
+  { key: "ppm",           label: "PPM Schedule",               desc: "Planned preventive maintenance programme",                   icon: "build_circle",      primary: false, ext: "docx" },
+  { key: "risk",          label: "Risk Register",              desc: "Risk matrix · Mitigation plans · Contingencies",             icon: "warning_amber",     primary: false, ext: "docx" },
+  { key: "hse",           label: "HSE Plan",                   desc: "Health, Safety & Environment management plan",               icon: "health_and_safety", primary: false, ext: "docx" },
+  { key: "sla",           label: "SLA & KPI Framework",        desc: "Service levels · KPI definitions · Penalty regime",         icon: "speed",             primary: false, ext: "docx" },
+  { key: "presentation",  label: "Executive Presentation",     desc: "C-suite summary for client meetings",                       icon: "slideshow",         primary: false, ext: "docx" },
 ];
 
 export default function ExportPage() {
@@ -39,7 +40,7 @@ export default function ExportPage() {
   }, [id]);
 
   const agentMap = Object.fromEntries(agents.map((a) => [a.agent_type, a]));
-  const isReady  = (key: string) => key === "all" || key === "commercial" || agentMap[key]?.status === "completed";
+  const isReady  = (key: string) => ["all","zip","commercial","excel_boq"].includes(key) || agentMap[key]?.status === "completed";
 
   async function download(type: string) {
     setDl(type);
@@ -58,9 +59,10 @@ export default function ExportPage() {
       const section = EXPORT_SECTIONS.find((s) => s.key === type);
       const safeName = (tender?.name ?? "tender").replace(/[^a-z0-9]/gi, "_");
       const safeLabel = (section?.label ?? type).replace(/[^a-z0-9]/gi, "_");
+      const ext = section?.ext ?? "docx";
       const a = Object.assign(document.createElement("a"), {
         href: URL.createObjectURL(blob),
-        download: `EIH_${safeName}_${safeLabel}.docx`,
+        download: `EIH_${safeName}_${safeLabel}.${ext}`,
       });
       a.click();
       setExported((prev) => [...new Set([...prev, type])]);
@@ -82,7 +84,7 @@ export default function ExportPage() {
       <div className="rounded-xl border border-border bg-surface shadow-sm overflow-hidden">
         <div className="grid grid-cols-3 divide-x divide-border-light">
           {[
-            { label: "Sections Ready",     value: `${completedCount} / 11`,     sub: "AI agents completed",       good: completedCount >= 8 },
+            { label: "Sections Ready",     value: `${completedCount} / 10`,     sub: "AI agents completed",       good: completedCount >= 8 },
             { label: "Readiness Score",    value: readiness ? `${readiness}%` : "—", sub: "Overall bid quality",  good: readiness >= 70 },
             { label: "Win Probability",    value: winProb ? `${winProb}%` : "—",    sub: "AI strategic estimate", good: winProb >= 50 },
           ].map((kpi) => (
@@ -100,7 +102,7 @@ export default function ExportPage() {
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-mid">
             <div className="h-full rounded-full bg-primary transition-all duration-700"
-              style={{ width: `${(completedCount / 11) * 100}%` }} />
+              style={{ width: `${(completedCount / 10) * 100}%` }} />
           </div>
         </div>
       </div>
@@ -186,9 +188,9 @@ export default function ExportPage() {
       <div className="flex items-start gap-3 rounded-xl border border-[#C8A24A]/30 bg-[#C8A24A]/5 px-4 py-3">
         <span className="material-symbols-outlined text-[18px] text-[#C8A24A] mt-0.5 shrink-0">lightbulb</span>
         <div>
-          <p className="text-[12.5px] font-semibold text-text">Commercial Proposal requires a saved BOQ</p>
+          <p className="text-[12.5px] font-semibold text-text">BOQ &amp; Commercial Proposal require a saved Estimation</p>
           <p className="text-[12px] text-text-secondary mt-0.5">
-            Go to the <strong>Estimation</strong> tab → fill in the BOQ monthly rates and staff → Save → then come back here to export. The Commercial Proposal will include your exact figures formatted exactly like EIH&apos;s standard proposal.
+            Go to the <strong>Estimation</strong> tab → fill in BOQ monthly rates and staff → Save → then come back here. The <strong>BOQ (Excel)</strong> exports a formatted 3-sheet workbook; <strong>Full Bid Package (ZIP)</strong> bundles every section as its own DOCX plus the Excel file.
           </p>
         </div>
       </div>
