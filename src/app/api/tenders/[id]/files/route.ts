@@ -55,7 +55,7 @@ export async function POST(
         console.warn(`Storage upload failed for ${file.name}: ${storageErr.message}`);
       }
 
-      await supabase.from("tender_files").insert({
+      const { data: insertedFile } = await supabase.from("tender_files").insert({
         tender_id: tenderId,
         name: file.name,
         original_name: file.name,
@@ -63,26 +63,29 @@ export async function POST(
         mime: file.type,
         size_bytes: file.size,
         extraction_status: "running",
-      });
+      }).select("id").single();
 
       // Extract text from buffer regardless of storage result
       try {
         const extracted = await extractText(buffer, file.name);
-        if (extracted.text.length > 50) {
-          extractedTexts.push(`--- FILE: ${file.name} ---\n${extracted.text}`);
+        const rawText = extracted.text.slice(0, 200_000); // cap at 200k chars per file
+        if (rawText.length > 50) {
+          extractedTexts.push(`--- FILE: ${file.name} ---\n${rawText}`);
         }
-        await supabase
-          .from("tender_files")
-          .update({ extraction_status: "done" })
-          .eq("tender_id", tenderId)
-          .eq("name", file.name);
+        // Save extracted_text alongside status so chat can read it later
+        const updatePayload: Record<string, unknown> = { extraction_status: "done" };
+        if (rawText.length > 50) updatePayload.extracted_text = rawText;
+        if (insertedFile?.id) {
+          await supabase.from("tender_files").update(updatePayload).eq("id", insertedFile.id);
+        } else {
+          await supabase.from("tender_files").update(updatePayload).eq("tender_id", tenderId).eq("name", file.name);
+        }
       } catch (extractErr) {
         console.warn(`Text extraction failed for ${file.name}:`, extractErr);
-        await supabase
-          .from("tender_files")
-          .update({ extraction_status: "failed" })
-          .eq("tender_id", tenderId)
-          .eq("name", file.name);
+        const target = insertedFile?.id
+          ? supabase.from("tender_files").update({ extraction_status: "failed" }).eq("id", insertedFile.id)
+          : supabase.from("tender_files").update({ extraction_status: "failed" }).eq("tender_id", tenderId).eq("name", file.name);
+        await target;
       }
     }),
   );

@@ -56,6 +56,7 @@ const TABS = [
   { key: "risk",          label: "Risk",          path: "/risk" },
   { key: "sla",           label: "SLA & KPI",     path: "/sla" },
   { key: "documents",     label: "Documents",     path: "/documents" },
+  { key: "proposal",      label: "Proposal Pkg",  path: "/proposal" },
   { key: "chat",          label: "Chat",          path: "/chat" },
   { key: "export",        label: "Export",        path: "/export" },
 ] as const;
